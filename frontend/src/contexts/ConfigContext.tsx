@@ -142,9 +142,11 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const [selectedLanguage, setSelectedLanguage] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('primaryLanguage');
-      return saved || 'auto';
+      // LingListen: default to Chinese; fix legacy 'auto-translate' to 'zh'
+      if (saved === 'auto-translate') return 'zh';
+      return saved || 'zh';
     }
-    return 'auto';
+    return 'zh';
   });
 
   // UI preferences state
