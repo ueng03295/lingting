@@ -72,9 +72,9 @@ const Sidebar: React.FC = () => {
     ollamaEndpoint: null
   });
   const [transcriptModelConfig, setTranscriptModelConfig] = useState<TranscriptModelProps>({
-    provider: 'parakeet',
-    model: 'parakeet-tdt-0.6b-v3-int8',
-    openaiCompatibleEndpoint: null,
+    provider: 'openaiCompatible',
+    model: 'qwen3-asr-1.7b',
+    openaiCompatibleEndpoint: 'http://localhost:8765',
     openaiCompatibleApiKey: null,
   });
   const [settingsSaveSuccess, setSettingsSaveSuccess] = useState<boolean | null>(null);

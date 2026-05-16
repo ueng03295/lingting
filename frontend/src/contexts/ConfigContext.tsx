@@ -107,10 +107,10 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
 
   // Transcript model configuration state
   const [transcriptModelConfig, setTranscriptModelConfig] = useState<TranscriptModelProps>({
-    provider: 'parakeet',
-    model: 'parakeet-tdt-0.6b-v3-int8',
+    provider: 'openaiCompatible',
+    model: 'qwen3-asr-1.7b',
     apiKey: null,
-    openaiCompatibleEndpoint: null,
+    openaiCompatibleEndpoint: 'http://localhost:8765',
     openaiCompatibleApiKey: null,
   });
 
@@ -203,10 +203,10 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
         if (config) {
           console.log('[ConfigContext] Loaded saved transcript config:', config);
           setTranscriptModelConfig({
-            provider: config.provider || 'parakeet',
-            model: config.model || 'parakeet-tdt-0.6b-v3-int8',
+            provider: config.provider || 'openaiCompatible',
+            model: config.model || 'qwen3-asr-1.7b',
             apiKey: config.apiKey || null,
-            openaiCompatibleEndpoint: (config as any).openaiCompatibleEndpoint || null,
+            openaiCompatibleEndpoint: (config as any).openaiCompatibleEndpoint || 'http://localhost:8765',
             openaiCompatibleApiKey: (config as any).openaiCompatibleApiKey || null,
           });
         }
