@@ -133,6 +133,7 @@ export function LanguageSelection({
   // Parakeet only supports auto-detection (doesn't support manual language selection)
   const isParakeet = provider === 'parakeet';
   const isOpenAICompat = provider === 'openaiCompatible';
+  // All providers except Parakeet support full language selection
   const availableLanguages = isParakeet
     ? LANGUAGES.filter(lang => lang.code === 'auto' || lang.code === 'auto-translate')
     : LANGUAGES;
@@ -201,22 +202,22 @@ export function LanguageSelection({
         {/* Parakeet language limitation warning */}
         {isParakeet && (
           <div className="p-2 bg-amber-50 border border-amber-200 rounded text-amber-800">
-            <p className="font-medium">ℹ️ Parakeet Language Support</p>
-            <p className="mt-1 text-xs">Parakeet currently only supports automatic language detection. Manual language selection is not available. Use Whisper if you need to specify a particular language.</p>
+            <p className="font-medium">ℹ️ Parakeet 语言限制</p>
+            <p className="mt-1 text-xs">Parakeet 只支持自动语言检测，不能指定语言。如需指定语言，请切换到 Whisper 或 OpenAI-Compatible。</p>
           </div>
         )}
 
-        {/* OpenAI-Compatible language info */}
-        {isOpenAICompat && selectedLanguage !== 'auto' && selectedLanguage !== 'auto-translate' && (
+        {/* Whisper / OpenAI-Compatible language hints */}
+        {!isParakeet && selectedLanguage !== 'auto' && selectedLanguage !== 'auto-translate' && (
           <div className="p-2 bg-blue-50 border border-blue-200 rounded text-blue-800">
-            <p className="font-medium">🌐 语言已指定</p>
-            <p className="mt-1 text-xs">ASR server will be instructed to transcribe in <strong>{selectedLanguageName}</strong>. This helps accuracy when auto-detection fails.</p>
+            <p className="font-medium">🌐 语言已指定：{selectedLanguageName}</p>
+            <p className="mt-1 text-xs">语音识别将优化为 <strong>{selectedLanguageName}</strong>。如果识别效果不好，可以切换到 auto 让模型自动检测。</p>
           </div>
         )}
-        {isOpenAICompat && selectedLanguage === 'auto' && (
+        {!isParakeet && selectedLanguage === 'auto' && (
           <div className="p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
-            <p className="font-medium">⚠️ Auto Detect</p>
-            <p className="mt-1 text-xs">Auto language detection may not work well for Chinese. Consider selecting a specific language for better accuracy.</p>
+            <p className="font-medium">⚠️ 自动检测</p>
+            <p className="mt-1 text-xs">自动检测对中文可能不准确，建议手动选择语言以获得更好的识别效果。</p>
           </div>
         )}
 

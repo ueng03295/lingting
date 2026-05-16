@@ -8,6 +8,7 @@ import { Eye, EyeOff, Lock, Unlock, Loader2, CheckCircle2, XCircle, Server, Memo
 import { ModelManager } from './WhisperModelManager';
 import { ParakeetModelManager } from './ParakeetModelManager';
 import { configService } from '@/services/configService';
+import { useConfig } from '@/contexts/ConfigContext';
 import { LanguageSelection } from './LanguageSelection';
 
 
@@ -26,6 +27,7 @@ export interface TranscriptSettingsProps {
 }
 
 export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelConfig, onModelSelect }: TranscriptSettingsProps) {
+    const { selectedLanguage } = useConfig();
     const [apiKey, setApiKey] = useState<string | null>(transcriptModelConfig.apiKey || null);
     const [showApiKey, setShowApiKey] = useState<boolean>(false);
     const [isApiKeyLocked, setIsApiKeyLocked] = useState<boolean>(true);
@@ -213,6 +215,13 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
             // ignore
         }
     };
+
+    // Sync global language preference to ASR server when it changes
+    useEffect(() => {
+        if (transcriptModelConfig.provider === 'openaiCompatible' && selectedLanguage) {
+            handleAsrLanguageChange(selectedLanguage);
+        }
+    }, [selectedLanguage, transcriptModelConfig.provider]);
 
     const modelOptions: Record<string, string[]> = {
         localWhisper: [], // Model selection handled by ModelManager component
@@ -519,14 +528,19 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                 </div>
                             )}
 
-                            {/* Language Selection for OpenAI-Compatible */}
-                            <div className="mt-3">
-                                <LanguageSelection
-                                    selectedLanguage={asrLanguage}
-                                    onLanguageChange={handleAsrLanguageChange}
-                                    provider="openaiCompatible"
-                                />
-                            </div>
+                            {/* Silent sync: push global language preference to ASR server */}
+                            {asrStatus && asrLanguage !== selectedLanguage && (
+                                <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700 flex items-center gap-1">
+                                    <Server className="h-3 w-3" />
+                                    Syncing language ({selectedLanguage}) to server...
+                                </div>
+                            )}
+                            {asrStatus && asrLanguage === selectedLanguage && (
+                                <div className="mt-2 text-xs text-gray-500 flex items-center gap-1">
+                                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                    Server language: {asrLanguage}
+                                </div>
+                            )}
                         </div>
                     )}
 
