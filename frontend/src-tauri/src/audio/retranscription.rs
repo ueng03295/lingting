@@ -102,6 +102,12 @@ pub async fn start_retranscription<R: Runtime>(
     RETRANSCRIPTION_CANCELLED.store(false, Ordering::SeqCst);
 
     let use_parakeet = provider.as_deref() == Some("parakeet");
+    let use_openai_compatible = provider.as_deref() == Some("openaiCompatible");
+
+    if use_openai_compatible {
+        return Err(anyhow!("Retranscription is not supported for OpenAI-Compatible provider. Please switch to Parakeet or Whisper for retranscription."));
+    }
+
     let result = run_retranscription(app.clone(), meeting_id.clone(), meeting_folder_path, language, model, provider).await;
 
     // Unload the engine after the batch job (success, failure, or cancellation)
@@ -182,6 +188,11 @@ async fn run_retranscription<R: Runtime>(
 
     // Determine which provider to use (default to whisper)
     let use_parakeet = provider.as_deref() == Some("parakeet");
+    let use_openai_compatible = provider.as_deref() == Some("openaiCompatible");
+
+    if use_openai_compatible {
+        return Err(anyhow!("Retranscription is not supported for OpenAI-Compatible provider. Please switch to Parakeet or Whisper."));
+    }
 
     info!(
         "Starting retranscription for meeting {} with language {:?}, model {:?}, provider {:?}",

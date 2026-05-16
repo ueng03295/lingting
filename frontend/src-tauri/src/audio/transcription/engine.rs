@@ -74,6 +74,8 @@ pub async fn validate_transcription_model_ready<R: Runtime>(app: &AppHandle<R>) 
                 provider: "parakeet".to_string(),
                 model: crate::config::DEFAULT_PARAKEET_MODEL.to_string(),
                 api_key: None,
+                openai_compatible_endpoint: None,
+                openai_compatible_api_key: None,
             }
         }
         Err(e) => {
@@ -82,6 +84,8 @@ pub async fn validate_transcription_model_ready<R: Runtime>(app: &AppHandle<R>) 
                 provider: "parakeet".to_string(),
                 model: crate::config::DEFAULT_PARAKEET_MODEL.to_string(),
                 api_key: None,
+                openai_compatible_endpoint: None,
+                openai_compatible_api_key: None,
             }
         }
     };
@@ -135,10 +139,32 @@ pub async fn validate_transcription_model_ready<R: Runtime>(app: &AppHandle<R>) 
                 }
             }
         }
+        "openaiCompatible" => {
+            info!("🔍 Validating OpenAI-Compatible transcription server...");
+            let endpoint = config.openai_compatible_endpoint
+                .unwrap_or_default();
+            if endpoint.is_empty() {
+                return Err("OpenAI-Compatible endpoint is not configured. Please set the server URL in Settings.".to_string());
+            }
+            // Test connectivity
+            match super::openai_compatible_provider::test_openai_compatible_connection(
+                &endpoint,
+                config.openai_compatible_api_key.as_deref(),
+            ).await {
+                Ok(models) => {
+                    info!("✅ OpenAI-Compatible server reachable, models: {:?}", models);
+                    Ok(())
+                }
+                Err(e) => {
+                    warn!("❌ OpenAI-Compatible server validation failed: {}", e);
+                    Err(format!("Cannot connect to transcription server: {}", e))
+                }
+            }
+        }
         other => {
             warn!("❌ Unsupported transcription provider for local recording: {}", other);
             Err(format!(
-                "Provider '{}' is not supported for local transcription. Please select 'localWhisper' or 'parakeet'.",
+                "Provider '{}' is not supported for local transcription. Please select 'localWhisper', 'parakeet', or 'openaiCompatible'.",
                 other
             ))
         }
@@ -170,6 +196,8 @@ pub async fn get_or_init_transcription_engine<R: Runtime>(
                 provider: "parakeet".to_string(),
                 model: crate::config::DEFAULT_PARAKEET_MODEL.to_string(),
                 api_key: None,
+                openai_compatible_endpoint: None,
+                openai_compatible_api_key: None,
             }
         }
         Err(e) => {
@@ -178,12 +206,29 @@ pub async fn get_or_init_transcription_engine<R: Runtime>(
                 provider: "parakeet".to_string(),
                 model: crate::config::DEFAULT_PARAKEET_MODEL.to_string(),
                 api_key: None,
+                openai_compatible_endpoint: None,
+                openai_compatible_api_key: None,
             }
         }
     };
 
     // Initialize the appropriate engine based on provider
     match config.provider.as_str() {
+        "openaiCompatible" => {
+            info!("🔗 Initializing OpenAI-Compatible transcription engine");
+            let endpoint = config.openai_compatible_endpoint
+                .unwrap_or_default();
+            if endpoint.is_empty() {
+                return Err("OpenAI-Compatible endpoint is not configured. Please set the server URL in Settings.".to_string());
+            }
+            let provider_config = super::openai_compatible_provider::OpenAICompatibleConfig {
+                endpoint: endpoint.clone(),
+                api_key: config.openai_compatible_api_key.clone(),
+                model: config.model.clone(),
+            };
+            let provider = super::openai_compatible_provider::OpenAICompatibleProvider::new(provider_config);
+            Ok(TranscriptionEngine::Provider(Arc::new(provider)))
+        }
         "parakeet" => {
             info!("🦜 Initializing Parakeet transcription engine");
 

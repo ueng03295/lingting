@@ -184,6 +184,7 @@ impl SettingsRepository {
             "elevenLabs" => "elevenLabsApiKey",
             "groq" => "groqApiKey",
             "openai" => "openaiApiKey",
+            "openaiCompatible" => return Self::save_openai_compatible_api_key(pool, api_key).await,
             _ => {
                 return Err(sqlx::Error::Protocol(
                     format!("Invalid provider: {}", provider).into(),
@@ -216,6 +217,15 @@ impl SettingsRepository {
             "elevenLabs" => "elevenLabsApiKey",
             "groq" => "groqApiKey",
             "openai" => "openaiApiKey",
+            "openaiCompatible" => {
+                // OpenAI-Compatible stores api key in a dedicated column
+                let result: Option<Option<String>> = sqlx::query_scalar(
+                    "SELECT openaiCompatibleApiKey FROM transcript_settings WHERE id = '1' LIMIT 1"
+                )
+                .fetch_optional(pool)
+                .await?;
+                return Ok(result.flatten());
+            }
             _ => {
                 return Err(sqlx::Error::Protocol(
                     format!("Invalid provider: {}", provider).into(),
@@ -340,6 +350,78 @@ impl SettingsRepository {
         )
         .bind(&config.model)
         .bind(config_json)
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Save OpenAI-Compatible transcription endpoint and API key
+    pub async fn save_openai_compatible_config(
+        pool: &SqlitePool,
+        endpoint: Option<&str>,
+        api_key: Option<&str>,
+    ) -> std::result::Result<(), sqlx::Error> {
+        // Ensure a row exists first
+        let existing = sqlx::query_as::<_, TranscriptSetting>(
+            "SELECT * FROM transcript_settings WHERE id = '1' LIMIT 1"
+        )
+        .fetch_optional(pool)
+        .await?;
+
+        if existing.is_none() {
+            sqlx::query(
+                "INSERT INTO transcript_settings (id, provider, model) VALUES ('1', 'parakeet', 'parakeet-tdt-0.6b-v3-int8')"
+            )
+            .execute(pool)
+            .await?;
+        }
+
+        if let Some(ep) = endpoint {
+            sqlx::query(
+                "UPDATE transcript_settings SET openaiCompatibleEndpoint = $1 WHERE id = '1'"
+            )
+            .bind(ep)
+            .execute(pool)
+            .await?;
+        }
+
+        if let Some(key) = api_key {
+            sqlx::query(
+                "UPDATE transcript_settings SET openaiCompatibleApiKey = $1 WHERE id = '1'"
+            )
+            .bind(key)
+            .execute(pool)
+            .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Save only the API key for OpenAI-Compatible transcription
+    async fn save_openai_compatible_api_key(
+        pool: &SqlitePool,
+        api_key: &str,
+    ) -> std::result::Result<(), sqlx::Error> {
+        // Ensure a row exists first
+        let existing = sqlx::query_as::<_, TranscriptSetting>(
+            "SELECT * FROM transcript_settings WHERE id = '1' LIMIT 1"
+        )
+        .fetch_optional(pool)
+        .await?;
+
+        if existing.is_none() {
+            sqlx::query(
+                "INSERT INTO transcript_settings (id, provider, model) VALUES ('1', 'parakeet', 'parakeet-tdt-0.6b-v3-int8')"
+            )
+            .execute(pool)
+            .await?;
+        }
+
+        sqlx::query(
+            "UPDATE transcript_settings SET openaiCompatibleApiKey = $1 WHERE id = '1'"
+        )
+        .bind(api_key)
         .execute(pool)
         .await?;
 

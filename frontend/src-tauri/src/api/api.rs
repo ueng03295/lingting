@@ -101,6 +101,10 @@ pub struct TranscriptConfig {
     pub model: String,
     #[serde(rename = "apiKey")]
     pub api_key: Option<String>,
+    #[serde(rename = "openaiCompatibleEndpoint")]
+    pub openai_compatible_endpoint: Option<String>,
+    #[serde(rename = "openaiCompatibleApiKey")]
+    pub openai_compatible_api_key: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -109,6 +113,10 @@ pub struct SaveTranscriptConfigRequest {
     pub model: String,
     #[serde(rename = "apiKey")]
     pub api_key: Option<String>,
+    #[serde(rename = "openaiCompatibleEndpoint")]
+    pub openai_compatible_endpoint: Option<String>,
+    #[serde(rename = "openaiCompatibleApiKey")]
+    pub openai_compatible_api_key: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -615,10 +623,15 @@ pub async fn api_get_transcript_config<R: Runtime>(
             match SettingsRepository::get_transcript_api_key(pool, &config.provider).await {
                 Ok(api_key) => {
                     log_info!("Successfully retrieved transcript config and API key.");
+                    // Also get OpenAI-Compatible endpoint if configured
+                    let openai_compatible_endpoint = config.openai_compatible_endpoint.clone();
+                    let openai_compatible_api_key = config.openai_compatible_api_key.clone();
                     Ok(Some(TranscriptConfig {
                         provider: config.provider,
                         model: config.model,
                         api_key,
+                        openai_compatible_endpoint,
+                        openai_compatible_api_key,
                     }))
                 }
                 Err(e) => {
@@ -637,6 +650,8 @@ pub async fn api_get_transcript_config<R: Runtime>(
                 provider: "parakeet".to_string(),
                 model: crate::config::DEFAULT_PARAKEET_MODEL.to_string(),
                 api_key: None,
+                openai_compatible_endpoint: None,
+                openai_compatible_api_key: None,
             }))
         }
         Err(e) => {
@@ -653,6 +668,8 @@ pub async fn api_save_transcript_config<R: Runtime>(
     provider: String,
     model: String,
     api_key: Option<String>,
+    openai_compatible_endpoint: Option<String>,
+    openai_compatible_api_key: Option<String>,
     _auth_token: Option<String>,
 ) -> Result<serde_json::Value, String> {
     log_info!(
@@ -674,6 +691,20 @@ pub async fn api_save_transcript_config<R: Runtime>(
                 log_error!("Failed to save transcript API key: {}", e);
                 return Err(e.to_string());
             }
+        }
+    }
+
+    // Save OpenAI-Compatible endpoint and API key
+    if provider == "openaiCompatible" {
+        if let Err(e) = SettingsRepository::save_openai_compatible_config(
+            pool,
+            openai_compatible_endpoint.as_deref(),
+            openai_compatible_api_key.as_deref(),
+        )
+        .await
+        {
+            log_error!("Failed to save OpenAI-Compatible config: {}", e);
+            return Err(e.to_string());
         }
     }
 
@@ -1371,6 +1402,68 @@ pub async fn api_test_custom_openai_connection<R: Runtime>(
         }
         Err(e) => {
             log_error!("❌ Custom OpenAI connection test failed: {}", e);
+            if e.is_timeout() {
+                Err("Connection timed out. Please check the endpoint URL.".to_string())
+            } else if e.is_connect() {
+                Err("Could not connect to endpoint. Please verify the URL is correct and the server is running.".to_string())
+            } else {
+                Err(format!("Connection failed: {}", e))
+            }
+        }
+    }
+}
+
+/// Test connection to an OpenAI-Compatible transcription server
+#[tauri::command]
+pub async fn api_test_openai_compatible_transcription<R: Runtime>(
+    _app: AppHandle<R>,
+    endpoint: String,
+    api_key: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log_info!("Testing OpenAI-Compatible transcription connection to: {}", &endpoint);
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+
+    let url = format!("{}/v1/models", endpoint.trim_end_matches('/'));
+
+    let mut request = client.get(&url);
+    if let Some(ref key) = api_key {
+        if !key.is_empty() {
+            request = request.bearer_auth(key);
+        }
+    }
+
+    match request.send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                let body: serde_json::Value = response.json().await
+                    .unwrap_or_else(|_| serde_json::json!({}));
+                let model_names: Vec<String> = body["data"]
+                    .as_array()
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|m| m["id"].as_str().map(String::from))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                log_info!("OpenAI-Compatible transcription server models: {:?}", model_names);
+                Ok(serde_json::json!({
+                    "status": "success",
+                    "message": "Connection successful",
+                    "models": model_names
+                }))
+            } else {
+                let status = response.status();
+                let error_text = response.text().await.unwrap_or_default();
+                log_error!("OpenAI-Compatible transcription test failed: {} {}", status, error_text);
+                Err(format!("Server returned {}: {}", status, error_text))
+            }
+        }
+        Err(e) => {
+            log_error!("OpenAI-Compatible transcription test error: {}", e);
             if e.is_timeout() {
                 Err("Connection timed out. Please check the endpoint URL.".to_string())
             } else if e.is_connect() {

@@ -55,6 +55,22 @@ export class ConfigService {
   }
 
   /**
+   * Test OpenAI-Compatible transcription server connection
+   * @param endpoint - Server URL
+   * @param apiKey - Optional API key
+   * @returns Promise with test result and available models
+   */
+  async testOpenAICompatibleConnection(
+    endpoint: string,
+    apiKey: string | null
+  ): Promise<{ status: string; message: string; models: string[] }> {
+    return invoke<{ status: string; message: string; models: string[] }>('api_test_openai_compatible_transcription', {
+      endpoint,
+      apiKey,
+    });
+  }
+
+  /**
    * Get saved summary model configuration
    * @returns Promise with { provider, model, whisperModel }
    */
