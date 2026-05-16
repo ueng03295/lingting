@@ -6,7 +6,20 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tauri::AppHandle;
 
-/// Notification settings (stub for 翎听)
+/// Nested notification preferences (matches frontend NotificationSettings.notification_preferences)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotificationPreferences {
+    pub show_recording_started: bool,
+    pub show_recording_stopped: bool,
+    pub show_recording_paused: bool,
+    pub show_recording_resumed: bool,
+    pub show_transcription_complete: bool,
+    pub show_meeting_reminders: bool,
+    pub show_system_errors: bool,
+    pub meeting_reminder_minutes: Vec<i32>,
+}
+
+/// Notification settings (matches frontend interface exactly)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NotificationSettings {
     pub recording_notifications: bool,
@@ -15,6 +28,32 @@ pub struct NotificationSettings {
     pub respect_do_not_disturb: bool,
     pub notification_sound: bool,
     pub system_permission_granted: bool,
+    pub consent_given: bool,
+    pub manual_dnd_mode: bool,
+    pub notification_preferences: NotificationPreferences,
+}
+
+fn default_notification_settings() -> NotificationSettings {
+    NotificationSettings {
+        recording_notifications: true,
+        time_based_reminders: true,
+        meeting_reminders: true,
+        respect_do_not_disturb: true,
+        notification_sound: true,
+        system_permission_granted: false,
+        consent_given: true,
+        manual_dnd_mode: false,
+        notification_preferences: NotificationPreferences {
+            show_recording_started: true,
+            show_recording_stopped: true,
+            show_recording_paused: true,
+            show_recording_resumed: true,
+            show_transcription_complete: true,
+            show_meeting_reminders: true,
+            show_system_errors: true,
+            meeting_reminder_minutes: vec![5, 10, 15],
+        },
+    }
 }
 
 /// Stub notification manager (no-op, thread-safe)
@@ -51,14 +90,7 @@ pub mod commands {
 
     #[tauri::command]
     pub async fn get_notification_settings() -> Result<NotificationSettings, String> {
-        Ok(NotificationSettings {
-            recording_notifications: true,
-            time_based_reminders: true,
-            meeting_reminders: true,
-            respect_do_not_disturb: true,
-            notification_sound: true,
-            system_permission_granted: false,
-        })
+        Ok(default_notification_settings())
     }
 
     #[tauri::command]
