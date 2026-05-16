@@ -15,6 +15,7 @@ pub mod api {
 
 /// Transcript configuration (used by audio pipeline)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TranscriptConfig {
     pub provider: String,
     pub model: String,
@@ -187,7 +188,7 @@ pub async fn api_search_transcripts(
     let results = TranscriptsRepository::search_transcripts(pool, &query)
         .await
         .unwrap_or_default();
-    Ok(serde_json::json!({"results": results}))
+    Ok(serde_json::to_value(&results).unwrap_or(serde_json::json!([])))
 }
 
 #[tauri::command]

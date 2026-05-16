@@ -12,7 +12,7 @@ pub async fn parakeet_init() -> Result<(), String> { Ok(()) }
 
 #[tauri::command]
 pub async fn parakeet_get_available_models() -> Result<serde_json::Value, String> {
-    Ok(serde_json::json!({"models": []}))
+    Ok(serde_json::json!([]))
 }
 
 #[tauri::command]

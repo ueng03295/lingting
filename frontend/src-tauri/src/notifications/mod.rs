@@ -6,12 +6,15 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tauri::AppHandle;
 
-/// Notification settings (stub)
+/// Notification settings (stub for 翎听)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NotificationSettings {
-    pub enabled: bool,
-    pub sound: bool,
-    pub dnd_enabled: bool,
+    pub recording_notifications: bool,
+    pub time_based_reminders: bool,
+    pub meeting_reminders: bool,
+    pub respect_do_not_disturb: bool,
+    pub notification_sound: bool,
+    pub system_permission_granted: bool,
 }
 
 /// Stub notification manager (no-op, thread-safe)
@@ -48,7 +51,14 @@ pub mod commands {
 
     #[tauri::command]
     pub async fn get_notification_settings() -> Result<NotificationSettings, String> {
-        Ok(NotificationSettings { enabled: true, sound: true, dnd_enabled: false })
+        Ok(NotificationSettings {
+            recording_notifications: true,
+            time_based_reminders: true,
+            meeting_reminders: true,
+            respect_do_not_disturb: true,
+            notification_sound: true,
+            system_permission_granted: false,
+        })
     }
 
     #[tauri::command]

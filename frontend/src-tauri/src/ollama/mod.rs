@@ -31,7 +31,7 @@ pub mod metadata {
 
 #[tauri::command]
 pub async fn get_ollama_models() -> Result<serde_json::Value, String> {
-    Ok(serde_json::json!({"models": []}))
+    Ok(serde_json::json!([]))
 }
 
 #[tauri::command]
