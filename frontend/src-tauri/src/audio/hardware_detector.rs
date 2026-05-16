@@ -106,11 +106,27 @@ impl HardwareProfile {
 
     /// Detect available system memory in GB
     fn detect_memory_gb() -> u8 {
-        // Simple memory detection - could be enhanced with system-specific calls
+        // Try sysctl on macOS first (most accurate)
+        #[cfg(target_os = "macos")]
+        {
+            if let Ok(output) = std::process::Command::new("sysctl")
+                .args(["-n", "hw.memsize"])
+                .output()
+            {
+                if let Ok(mem_str) = String::from_utf8(output.stdout) {
+                    if let Ok(bytes) = mem_str.trim().parse::<u64>() {
+                        let gb = (bytes / (1024 * 1024 * 1024)).max(1) as u8;
+                        log::info!("Detected memory: {} GB", gb);
+                        return gb;
+                    }
+                }
+            }
+        }
+        // Fallback: check environment variable
         match std::env::var("MEMORY_GB") {
             Ok(mem_str) => mem_str.parse().unwrap_or(8),
             Err(_) => {
-                // Default estimates based on common configurations
+                log::warn!("Could not detect memory, defaulting to 8 GB");
                 8 // Conservative default
             }
         }

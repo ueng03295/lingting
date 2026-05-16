@@ -1,6 +1,7 @@
 // Commit name to recover the serial whisper engine processing for smaller meetings [Slower processing but dooes not fail] - "before parallel processing implementation"
 
 use std::path::{PathBuf};
+use std::time::Duration;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -540,6 +541,15 @@ impl WhisperEngine {
         params.set_language(language_code);
         params.set_translate(should_translate);
 
+        // CHINESE ASR FIX: Add initial prompt for CJK languages to improve recognition
+        // Whisper uses the initial prompt as context for the first segment, dramatically
+        // improving Chinese/Japanese/Korean transcription accuracy and preventing
+        // the model from hallucinating or dropping large portions of speech.
+        let is_cjk = language_code.map_or(false, |l| matches!(l, "zh" | "ja" | "ko" | "yue"));
+        if is_cjk {
+            params.set_initial_prompt("以下是普通话的句子。");
+        }
+
         // CRITICAL: Disable timestamp tokens to prevent whisper.cpp chunking heuristics
         // The "single timestamp ending - skip entire chunk" optimization incorrectly discards
         // complete, valid transcriptions. Disabling timestamps forces whisper to return ALL text.
@@ -554,17 +564,19 @@ impl WhisperEngine {
         params.set_print_timestamps(false);   // Don't print timestamps
 
         // Additional suppression to reduce C library verbosity
-        params.set_suppress_blank(true);
-        params.set_suppress_non_speech_tokens(true);
-        params.set_temperature(adaptive_config.temperature);
-        params.set_max_initial_ts(1.0);
-        params.set_entropy_thold(2.4);
+        // CHINESE ASR FIX: disable suppress_blank for CJK — Chinese tonal patterns
+        // and short pauses between phrases trigger false blank detection, causing
+        // Whisper to drop entire segments. Non-CJK languages keep suppress_blank.
+        params.set_suppress_blank(!is_cjk);
+        params.set_suppress_non_speech_tokens(!is_cjk);
+        params.set_temperature(if is_cjk { 0.0 } else { adaptive_config.temperature });
+        params.set_max_initial_ts(if is_cjk { 1.0 } else { 1.0 });
+        params.set_entropy_thold(if is_cjk { 5.0 } else { 2.4 });
         params.set_logprob_thold(-1.0);
-        // BALANCED FIX: Lowered from 0.75 to 0.55 to allow quiet speech detection
-        // Previous value was too aggressive and rejected valid quiet speech
-        // 0.55 is balanced - prevents hallucinations while preserving quiet speech
-        params.set_no_speech_thold(0.55);
-        params.set_max_len(200);
+        // CHINESE ASR FIX: raise no_speech threshold for CJK — tonal languages
+        // have higher no_speech probability scores even during valid speech.
+        params.set_no_speech_thold(if is_cjk { 0.8 } else { 0.55 });
+        params.set_max_len(0);  // 0 = no limit, let Whisper segment naturally
         params.set_single_segment(false);
 
         // Set thread count based on hardware (if supported by whisper.cpp)
@@ -657,6 +669,12 @@ impl WhisperEngine {
         params.set_language(language_code);
         params.set_translate(should_translate);
 
+        // CHINESE ASR FIX: Add initial prompt for CJK languages to improve recognition
+        let is_cjk = language_code.map_or(false, |l| matches!(l, "zh" | "ja" | "ko" | "yue"));
+        if is_cjk {
+            params.set_initial_prompt("以下是普通话的句子。");
+        }
+
         // CRITICAL: Disable timestamp tokens to prevent whisper.cpp chunking heuristics
         // The "single timestamp ending - skip entire chunk" optimization incorrectly discards
         // complete, valid transcriptions. Disabling timestamps forces whisper to return ALL text.
@@ -668,20 +686,15 @@ impl WhisperEngine {
         params.set_print_realtime(false);
         params.set_print_timestamps(false);
 
-        // BALANCED settings - good quality with reasonable speed
-        params.set_suppress_blank(true);
-        params.set_suppress_non_speech_tokens(true);
-        params.set_temperature(0.3);             // Lower than 0.4 for consistency, higher than 0.0 for quality
+        // CHINESE ASR FIX: CJK-aware suppression settings
+        params.set_suppress_blank(!is_cjk);
+        params.set_suppress_non_speech_tokens(!is_cjk);
+        params.set_temperature(if is_cjk { 0.0 } else { 0.3 });
         params.set_max_initial_ts(1.0);
-        params.set_entropy_thold(2.4);
+        params.set_entropy_thold(if is_cjk { 5.0 } else { 2.4 });
         params.set_logprob_thold(-1.0);
-        // BALANCED FIX: Lowered from 0.75 to 0.55 to allow quiet speech detection
-        // Previous value was too aggressive and rejected valid quiet speech
-        // 0.55 is balanced - prevents hallucinations while preserving quiet speech
-        params.set_no_speech_thold(0.55);
-
-        // Reasonable length limits
-        params.set_max_len(200);                 // Reasonable length
+        params.set_no_speech_thold(if is_cjk { 0.8 } else { 0.55 });
+        params.set_max_len(0);  // 0 = no limit, let Whisper segment naturally
         params.set_single_segment(false);        // Allow multiple segments for better accuracy
 
         // Note: compression_ratio_threshold would be ideal but not available in current whisper-rs
@@ -918,30 +931,17 @@ impl WhisperEngine {
             *cancel_flag = None;
         }
 
-        // Official ggerganov/whisper.cpp model URLs from Hugging Face
-        let model_url = match model_name {
-            // Standard f16 models
-            "tiny" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin",
-            "base" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin",
-            "small" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin",
-            "medium" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin",
-            "large-v3-turbo" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin",
-            "large-v3" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin",
+        // Build model filename first, then try mirror → direct URLs
+        let filename = format!("ggml-{}.bin", model_name);
+        let hf_path = format!("ggerganov/whisper.cpp/resolve/main/{}", filename);
 
-            // Q5_1 quantized models
-            "tiny-q5_1" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny-q5_1.bin",
-            "base-q5_1" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin",
-            "small-q5_1" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin",
-
-            // Q5_0 quantized models
-            "medium-q5_0" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q5_0.bin",
-            "large-v3-turbo-q5_0" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin",
-            "large-v3-q5_0" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-q5_0.bin",
-
-            _ => return Err(anyhow!("Unsupported model: {}", model_name))
-        };
+        // Try HuggingFace mirror first (accessible in China), fall back to direct
+        let urls = vec![
+            format!("https://hf-mirror.com/{}", hf_path),
+            format!("https://huggingface.co/{}", hf_path),
+        ];
         
-        log::info!("Model URL for {}: {}", model_name, model_url);
+        log::info!("Downloading model {} (filename: {})", model_name, filename);
         
         // Generate correct filename - all models follow ggml-{model_name}.bin pattern
         let filename = format!("ggml-{}.bin", model_name);
@@ -964,19 +964,43 @@ impl WhisperEngine {
         }
         
         log::info!("Creating HTTP client and starting request...");
-        let client = Client::new();
-        
-        log::info!("Sending GET request to: {}", model_url);
-        let response = client.get(model_url).send().await
-            .map_err(|e| anyhow!("Failed to start download: {}", e))?;
-        
-        log::info!("Received response with status: {}", response.status());
-        if !response.status().is_success() {
+        let client = Client::builder()
+            .tcp_nodelay(true)
+            .pool_max_idle_per_host(1)
+            .timeout(Duration::from_secs(3600))
+            .connect_timeout(Duration::from_secs(30))
+            .build()
+            .map_err(|e| anyhow!("Failed to create HTTP client: {}", e))?;
+
+        // Try each URL (mirror first, then direct)
+        let mut response = None;
+        let mut last_error = String::new();
+        for url in &urls {
+            log::info!("Trying download URL: {}", url);
+            match client.get(url.as_str()).send().await {
+                Ok(resp) if resp.status().is_success() => {
+                    log::info!("Connected to {} (status: {})", url, resp.status());
+                    response = Some(resp);
+                    break;
+                }
+                Ok(resp) => {
+                    log::warn!("URL {} returned status: {}", url, resp.status());
+                    last_error = format!("HTTP {}", resp.status());
+                }
+                Err(e) => {
+                    log::warn!("Failed to connect to {}: {}", url, e);
+                    last_error = e.to_string();
+                }
+            }
+        }
+
+        if response.is_none() {
             // Remove from active downloads on error
             let mut active = self.active_downloads.write().await;
             active.remove(model_name);
-            return Err(anyhow!("Download failed with status: {}", response.status()));
+            return Err(anyhow!("All download URLs failed. Last error: {}", last_error));
         }
+        let response = response.unwrap();
         
         let total_size = response.content_length().unwrap_or(0);
         log::info!("Response successful, content length: {} bytes ({:.1} MB)", total_size, total_size as f64 / (1024.0 * 1024.0));

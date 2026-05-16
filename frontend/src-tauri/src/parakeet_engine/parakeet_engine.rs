@@ -590,12 +590,19 @@ impl ParakeetEngine {
             }
         }
 
-        // HuggingFace base URL for Parakeet models (version-specific)
-        let base_url = if model_name.contains("-v2-") {
-            "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx/resolve/main"
+        // HuggingFace mirror + direct URLs for Parakeet models
+        let base_urls: Vec<String> = if model_name.contains("-v2-") {
+            vec![
+                "https://hf-mirror.com/istupakov/parakeet-tdt-0.6b-v2-onnx/resolve/main".to_string(),
+                "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v2-onnx/resolve/main".to_string(),
+            ]
         } else {
-            // Default to v3 for v3 models
-            "https://meetily.towardsgeneralintelligence.com/models/parakeet-tdt-0.6b-v3-onnx"
+            // Default to v3 — try mirror, then Meetily mirror, then direct
+            vec![
+                "https://hf-mirror.com/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main".to_string(),
+                "https://meetily.towardsgeneralintelligence.com/models/parakeet-tdt-0.6b-v3-onnx".to_string(),
+                "https://huggingface.co/istupakov/parakeet-tdt-0.6b-v3-onnx/resolve/main".to_string(),
+            ]
         };
 
         // Determine which files to download based on quantization
@@ -713,7 +720,6 @@ impl ParakeetEngine {
         );
 
         for (index, filename) in files_to_download.iter().enumerate() {
-            let file_url = format!("{}/{}", base_url, filename);
             let file_path = model_dir.join(filename);
 
             // Check for existing partial file to resume
@@ -739,17 +745,55 @@ impl ParakeetEngine {
 
             log::info!("Downloading file {}/{}: {} (resuming from {} bytes)", index + 1, total_files, filename, existing_size);
 
-            // Build request with optional Range header for resume
-            let mut request = client.get(&file_url);
-            if existing_size > 0 {
-                request = request.header("Range", format!("bytes={}-", existing_size));
-                log::info!("Resuming download from byte {}", existing_size);
+            // Try each base URL (mirror first) until one works
+            let mut response = None;
+            let mut last_error = String::new();
+            let mut working_base_url = String::new();
+            'url_loop: for base in &base_urls {
+                let file_url = format!("{}/{}", base, filename);
+                log::info!("Trying URL: {}", file_url);
+
+                // Build request with optional Range header for resume
+                let mut request = client.get(&file_url);
+                if existing_size > 0 {
+                    request = request.header("Range", format!("bytes={}-", existing_size));
+                    log::info!("Resuming download from byte {}", existing_size);
+                }
+
+                match request.send().await {
+                    Ok(resp) => {
+                        if resp.status().is_success() || resp.status() == reqwest::StatusCode::PARTIAL_CONTENT {
+                            log::info!("Connected to {} (status: {})", file_url, resp.status());
+                            response = Some(resp);
+                            working_base_url = base.clone();
+                            break 'url_loop;
+                        } else if resp.status() == reqwest::StatusCode::RANGE_NOT_SATISFIABLE {
+                            // 416 — could mean file is complete; handle below
+                            log::info!("URL {} returned 416 Range Not Satisfiable", file_url);
+                            response = Some(resp);
+                            working_base_url = base.clone();
+                            break 'url_loop;
+                        } else {
+                            log::warn!("URL {} returned status: {}", file_url, resp.status());
+                            last_error = format!("HTTP {}", resp.status());
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to connect to {}: {}", file_url, e);
+                        last_error = e.to_string();
+                    }
+                }
             }
 
-            let mut response = request.send().await
-                .map_err(|e| {
-                    anyhow!("Failed to start download for {}: {}", filename, e)
-                })?;
+            if response.is_none() {
+                let mut active = self.active_downloads.write().await;
+                active.remove(model_name);
+                return Err(anyhow!("All download URLs failed for {}. Last error: {}", filename, last_error));
+            }
+            let mut response = response.unwrap();
+
+            // Build file_url for retry logic later
+            let file_url = format!("{}/{}", working_base_url, filename);
 
             // Handle response status
             let (file_total_size, resuming) = if response.status() == reqwest::StatusCode::PARTIAL_CONTENT {
