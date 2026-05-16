@@ -132,6 +132,7 @@ export function LanguageSelection({
 
   // Parakeet only supports auto-detection (doesn't support manual language selection)
   const isParakeet = provider === 'parakeet';
+  const isOpenAICompat = provider === 'openaiCompatible';
   const availableLanguages = isParakeet
     ? LANGUAGES.filter(lang => lang.code === 'auto' || lang.code === 'auto-translate')
     : LANGUAGES;
@@ -202,6 +203,20 @@ export function LanguageSelection({
           <div className="p-2 bg-amber-50 border border-amber-200 rounded text-amber-800">
             <p className="font-medium">ℹ️ Parakeet Language Support</p>
             <p className="mt-1 text-xs">Parakeet currently only supports automatic language detection. Manual language selection is not available. Use Whisper if you need to specify a particular language.</p>
+          </div>
+        )}
+
+        {/* OpenAI-Compatible language info */}
+        {isOpenAICompat && selectedLanguage !== 'auto' && selectedLanguage !== 'auto-translate' && (
+          <div className="p-2 bg-blue-50 border border-blue-200 rounded text-blue-800">
+            <p className="font-medium">🌐 语言已指定</p>
+            <p className="mt-1 text-xs">ASR server will be instructed to transcribe in <strong>{selectedLanguageName}</strong>. This helps accuracy when auto-detection fails.</p>
+          </div>
+        )}
+        {isOpenAICompat && selectedLanguage === 'auto' && (
+          <div className="p-2 bg-yellow-50 border border-yellow-200 rounded text-yellow-800">
+            <p className="font-medium">⚠️ Auto Detect</p>
+            <p className="mt-1 text-xs">Auto language detection may not work well for Chinese. Consider selecting a specific language for better accuracy.</p>
           </div>
         )}
 

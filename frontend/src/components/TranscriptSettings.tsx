@@ -1,13 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
-import { Eye, EyeOff, Lock, Unlock, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Eye, EyeOff, Lock, Unlock, Loader2, CheckCircle2, XCircle, Server, MemoryStick, Download } from 'lucide-react';
 import { ModelManager } from './WhisperModelManager';
 import { ParakeetModelManager } from './ParakeetModelManager';
 import { configService } from '@/services/configService';
+import { LanguageSelection } from './LanguageSelection';
 
 
 export interface TranscriptModelProps {
@@ -45,6 +46,12 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
     const [isTestingConnection, setIsTestingConnection] = useState<boolean>(false);
     const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [connectionMessage, setConnectionMessage] = useState<string>('');
+
+    // ASR model management state
+    const [asrStatus, setAsrStatus] = useState<{ loaded: boolean; model_id: string | null; language: string; available_models: any[] } | null>(null);
+    const [isLoadingModel, setIsLoadingModel] = useState(false);
+    const [isUnloadingModel, setIsUnloadingModel] = useState(false);
+    const [asrLanguage, setAsrLanguage] = useState<string>('zh');
 
     // Auto-save transcript config to backend when it changes
     const prevConfigRef = useRef<string>('');
@@ -127,11 +134,83 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
             if (result.models && result.models.length > 0) {
                 setAvailableModels(result.models);
             }
+            // Also fetch ASR status after successful connection
+            fetchAsrStatus();
         } catch (err: any) {
             setConnectionStatus('error');
             setConnectionMessage(err?.toString() || 'Connection failed');
         } finally {
             setIsTestingConnection(false);
+        }
+    };
+
+    // Fetch ASR server status
+    const fetchAsrStatus = useCallback(async () => {
+        const endpoint = openaiCompatibleEndpoint || transcriptModelConfig.openaiCompatibleEndpoint || '';
+        if (!endpoint) return;
+        try {
+            const url = `${endpoint.replace(/\/+$/, '')}/v1/asr/status`;
+            const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
+            if (response.ok) {
+                const data = await response.json();
+                setAsrStatus(data);
+                setAsrLanguage(data.language || 'zh');
+            }
+        } catch {
+            // ASR management endpoints not available — that's OK
+            setAsrStatus(null);
+        }
+    }, [openaiCompatibleEndpoint, transcriptModelConfig.openaiCompatibleEndpoint]);
+
+    // Load ASR model into memory
+    const handleLoadModel = async () => {
+        setIsLoadingModel(true);
+        const endpoint = openaiCompatibleEndpoint || transcriptModelConfig.openaiCompatibleEndpoint || '';
+        try {
+            const url = `${endpoint.replace(/\/+$/, '')}/v1/asr/load`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: openaiCompatibleModel || 'qwen3-asr-1.7b' }),
+            });
+            if (response.ok) {
+                await fetchAsrStatus();
+            }
+        } catch {
+            // ignore
+        } finally {
+            setIsLoadingModel(false);
+        }
+    };
+
+    // Unload ASR model from memory
+    const handleUnloadModel = async () => {
+        setIsUnloadingModel(true);
+        const endpoint = openaiCompatibleEndpoint || transcriptModelConfig.openaiCompatibleEndpoint || '';
+        try {
+            const url = `${endpoint.replace(/\/+$/, '')}/v1/asr/unload`;
+            await fetch(url, { method: 'POST' });
+            await fetchAsrStatus();
+        } catch {
+            // ignore
+        } finally {
+            setIsUnloadingModel(false);
+        }
+    };
+
+    // Change ASR language on server
+    const handleAsrLanguageChange = async (lang: string) => {
+        setAsrLanguage(lang);
+        const endpoint = openaiCompatibleEndpoint || transcriptModelConfig.openaiCompatibleEndpoint || '';
+        try {
+            const url = `${endpoint.replace(/\/+$/, '')}/v1/asr/language`;
+            await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ language: lang }),
+            });
+        } catch {
+            // ignore
         }
     };
 
@@ -381,6 +460,72 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
                                         <span>{connectionMessage}</span>
                                     </div>
                                 )}
+                            </div>
+
+                            {/* ASR Model Management */}
+                            {asrStatus && (
+                                <div className="mt-3 p-3 bg-white rounded-lg border border-gray-200">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Server className="h-4 w-4 text-gray-600" />
+                                        <span className="text-sm font-medium text-gray-900">ASR Server Status</span>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-2 mb-3 text-sm">
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${asrStatus.loaded ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                                            <span className={`w-1.5 h-1.5 rounded-full ${asrStatus.loaded ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                            {asrStatus.loaded ? `Loaded: ${asrStatus.model_id}` : 'Not loaded'}
+                                        </span>
+                                    </div>
+
+                                    <div className="flex gap-2 mb-3">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleLoadModel}
+                                            disabled={isLoadingModel || asrStatus.loaded}
+                                            className="text-xs"
+                                        >
+                                            {isLoadingModel ? (
+                                                <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Loading...</>
+                                            ) : (
+                                                <><Download className="h-3 w-3 mr-1" />Load Model</>
+                                            )}
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleUnloadModel}
+                                            disabled={isUnloadingModel || !asrStatus.loaded}
+                                            className="text-xs"
+                                        >
+                                            {isUnloadingModel ? (
+                                                <><Loader2 className="h-3 w-3 mr-1 animate-spin" />Unloading...</>
+                                            ) : (
+                                                <><MemoryStick className="h-3 w-3 mr-1" />Unload Model</>
+                                            )}
+                                        </Button>
+                                    </div>
+
+                                    {asrStatus.loaded && (
+                                        <div className="text-xs text-gray-500">
+                                            <span className="flex items-center gap-1">
+                                                <MemoryStick className="h-3 w-3" />
+                                                {asrStatus.available_models?.find((m: any) => m.id === asrStatus.model_id)?.size_gb || '?'} GB in memory — click Unload to free memory when not recording
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Language Selection for OpenAI-Compatible */}
+                            <div className="mt-3">
+                                <LanguageSelection
+                                    selectedLanguage={asrLanguage}
+                                    onLanguageChange={handleAsrLanguageChange}
+                                    provider="openaiCompatible"
+                                />
                             </div>
                         </div>
                     )}
