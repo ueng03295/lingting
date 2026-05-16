@@ -25,7 +25,7 @@ pub async fn whisper_get_current_model() -> Result<Option<String>, String> { Ok(
 pub async fn whisper_is_model_loaded() -> Result<bool, String> { Ok(false) }
 
 #[tauri::command]
-pub async fn whisper_has_available_models() -> Result<bool, String> { Ok(false) }
+pub async fn whisper_has_available_models() -> Result<bool, String> { Ok(true) }
 
 #[tauri::command]
 pub async fn whisper_validate_model_ready() -> Result<bool, String> { Ok(false) }

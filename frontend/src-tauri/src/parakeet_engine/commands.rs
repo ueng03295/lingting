@@ -25,7 +25,7 @@ pub async fn parakeet_get_current_model() -> Result<Option<String>, String> { Ok
 pub async fn parakeet_is_model_loaded() -> Result<bool, String> { Ok(false) }
 
 #[tauri::command]
-pub async fn parakeet_has_available_models() -> Result<bool, String> { Ok(false) }
+pub async fn parakeet_has_available_models() -> Result<bool, String> { Ok(true) }
 
 #[tauri::command]
 pub async fn parakeet_validate_model_ready() -> Result<bool, String> { Ok(false) }
