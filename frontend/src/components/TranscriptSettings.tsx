@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Input } from './ui/input';
@@ -45,6 +45,37 @@ export function TranscriptSettings({ transcriptModelConfig, setTranscriptModelCo
     const [isTestingConnection, setIsTestingConnection] = useState<boolean>(false);
     const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
     const [connectionMessage, setConnectionMessage] = useState<string>('');
+
+    // Auto-save transcript config to backend when it changes
+    const prevConfigRef = useRef<string>('');
+    useEffect(() => {
+        // Serialize current config to detect meaningful changes
+        const configKey = JSON.stringify({
+            provider: transcriptModelConfig.provider,
+            model: transcriptModelConfig.model,
+            openaiCompatibleEndpoint: transcriptModelConfig.openaiCompatibleEndpoint,
+            openaiCompatibleApiKey: transcriptModelConfig.openaiCompatibleApiKey,
+        });
+        // Skip initial render and non-meaningful changes
+        if (prevConfigRef.current && prevConfigRef.current !== configKey) {
+            const save = async () => {
+                try {
+                    await invoke('api_save_transcript_config', {
+                        provider: transcriptModelConfig.provider,
+                        model: transcriptModelConfig.model,
+                        apiKey: transcriptModelConfig.apiKey ?? null,
+                        openaiCompatibleEndpoint: transcriptModelConfig.openaiCompatibleEndpoint ?? null,
+                        openaiCompatibleApiKey: transcriptModelConfig.openaiCompatibleApiKey ?? null,
+                    });
+                    console.log('Auto-saved transcript config:', transcriptModelConfig.provider, transcriptModelConfig.model);
+                } catch (error) {
+                    console.error('Failed to auto-save transcript config:', error);
+                }
+            };
+            save();
+        }
+        prevConfigRef.current = configKey;
+    }, [transcriptModelConfig.provider, transcriptModelConfig.model, transcriptModelConfig.openaiCompatibleEndpoint, transcriptModelConfig.openaiCompatibleApiKey]);
 
     // Sync uiProvider when backend config changes (e.g., after model selection or initial load)
     useEffect(() => {
