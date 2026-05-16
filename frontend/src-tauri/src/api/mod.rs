@@ -345,18 +345,23 @@ pub async fn open_external_url(url: String) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn api_save_custom_openai_config(
-    config: serde_json::Value,
+    endpoint: String,
+    api_key: Option<String>,
+    model: String,
+    max_tokens: Option<i32>,
+    temperature: Option<f32>,
+    top_p: Option<f32>,
     _app: AppHandle<tauri::Wry>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let pool = state.db_manager.pool();
     let custom_config = crate::summary::CustomOpenAIConfig {
-        endpoint: config.get("endpoint").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-        api_key: config.get("apiKey").and_then(|v| v.as_str()).map(|s| s.to_string()),
-        model: config.get("model").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-        max_tokens: config.get("maxTokens").and_then(|v| v.as_u64()).map(|n| n as i32),
-        temperature: config.get("temperature").and_then(|v| v.as_f64()).map(|f| f as f32),
-        top_p: config.get("topP").and_then(|v| v.as_f64()).map(|f| f as f32),
+        endpoint,
+        api_key,
+        model,
+        max_tokens,
+        temperature,
+        top_p,
     };
     SettingsRepository::save_custom_openai_config(pool, &custom_config)
         .await
@@ -377,20 +382,24 @@ pub async fn api_get_custom_openai_config(
 }
 
 #[tauri::command]
-pub async fn api_test_custom_openai_connection(_config: serde_json::Value) -> Result<Vec<String>, String> {
+pub async fn api_test_custom_openai_connection(
+    _endpoint: String,
+    _api_key: Option<String>,
+    _model: Option<String>,
+) -> Result<Vec<String>, String> {
     Ok(vec![])
 }
 
 #[tauri::command]
-pub async fn api_test_openai_compatible_transcription(config: serde_json::Value) -> Result<serde_json::Value, String> {
-    let endpoint = config.get("endpoint").and_then(|v| v.as_str()).unwrap_or("http://127.0.0.1:8765");
-    let api_key = config.get("apiKey").and_then(|v| v.as_str());
-
+pub async fn api_test_openai_compatible_transcription(
+    endpoint: String,
+    api_key: Option<String>,
+) -> Result<serde_json::Value, String> {
     let client = reqwest::Client::new();
     let url = format!("{}/v1/models", endpoint.trim_end_matches('/'));
 
     let mut req = client.get(&url);
-    if let Some(key) = api_key {
+    if let Some(key) = api_key.as_deref() {
         req = req.header("Authorization", format!("Bearer {}", key));
     }
 
