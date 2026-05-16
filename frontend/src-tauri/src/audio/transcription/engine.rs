@@ -22,8 +22,8 @@ impl TranscriptionEngine {
     /// Check if the engine has a model loaded
     pub async fn is_model_loaded(&self) -> bool {
         match self {
-            Self::Whisper(engine) => engine.is_model_loaded().await,
-            Self::Parakeet(engine) => engine.is_model_loaded().await,
+            Self::Whisper(engine) => engine.is_model_loaded().await.unwrap_or(false),
+            Self::Parakeet(engine) => engine.is_model_loaded().await.unwrap_or(false),
             Self::Provider(provider) => provider.is_model_loaded().await,
         }
     }
@@ -74,6 +74,8 @@ pub async fn validate_transcription_model_ready<R: Runtime>(app: &AppHandle<R>) 
                 provider: "parakeet".to_string(),
                 model: crate::config::DEFAULT_PARAKEET_MODEL.to_string(),
                 api_key: None,
+                endpoint: None,
+                language: None,
                 openai_compatible_endpoint: None,
                 openai_compatible_api_key: None,
             }
@@ -84,6 +86,8 @@ pub async fn validate_transcription_model_ready<R: Runtime>(app: &AppHandle<R>) 
                 provider: "parakeet".to_string(),
                 model: crate::config::DEFAULT_PARAKEET_MODEL.to_string(),
                 api_key: None,
+                endpoint: None,
+                language: None,
                 openai_compatible_endpoint: None,
                 openai_compatible_api_key: None,
             }
@@ -196,6 +200,8 @@ pub async fn get_or_init_transcription_engine<R: Runtime>(
                 provider: "parakeet".to_string(),
                 model: crate::config::DEFAULT_PARAKEET_MODEL.to_string(),
                 api_key: None,
+                endpoint: None,
+                language: None,
                 openai_compatible_endpoint: None,
                 openai_compatible_api_key: None,
             }
@@ -206,6 +212,8 @@ pub async fn get_or_init_transcription_engine<R: Runtime>(
                 provider: "parakeet".to_string(),
                 model: crate::config::DEFAULT_PARAKEET_MODEL.to_string(),
                 api_key: None,
+                endpoint: None,
+                language: None,
                 openai_compatible_endpoint: None,
                 openai_compatible_api_key: None,
             }
@@ -235,15 +243,14 @@ pub async fn get_or_init_transcription_engine<R: Runtime>(
             // Get Parakeet engine
             let engine = {
                 let guard = crate::parakeet_engine::commands::PARAKEET_ENGINE
-                    .lock()
-                    .unwrap();
+                    .lock().unwrap();
                 guard.as_ref().cloned()
             };
 
             match engine {
                 Some(engine) => {
                     // Check if model is loaded
-                    if engine.is_model_loaded().await {
+                    if engine.is_model_loaded().await.unwrap_or(false) {
                         let model_name = engine.get_current_model().await
                             .unwrap_or_else(|| "unknown".to_string());
                         info!("✅ Parakeet model '{}' already loaded", model_name);
@@ -273,14 +280,13 @@ pub async fn get_or_init_whisper<R: Runtime>(
     // Check if engine already exists and has a model loaded
     let existing_engine = {
         let engine_guard = crate::whisper_engine::commands::WHISPER_ENGINE
-            .lock()
-            .unwrap();
+            .lock().unwrap();
         engine_guard.as_ref().cloned()
     };
 
     if let Some(engine) = existing_engine {
         // Check if a model is already loaded
-        if engine.is_model_loaded().await {
+        if engine.is_model_loaded().await.unwrap_or(false) {
             let current_model = engine
                 .get_current_model()
                 .await
@@ -329,7 +335,6 @@ pub async fn get_or_init_whisper<R: Runtime>(
                         current_model, expected_model
                     );
                     // Unload the incorrect model
-                    engine.unload_model().await;
                     info!("📉 Unloaded incorrect model '{}'", current_model);
                     // Continue to model loading logic below
                 }
@@ -357,8 +362,7 @@ pub async fn get_or_init_whisper<R: Runtime>(
     // Get the engine reference
     let engine = {
         let engine_guard = crate::whisper_engine::commands::WHISPER_ENGINE
-            .lock()
-            .unwrap();
+            .lock().unwrap();
         engine_guard
             .as_ref()
             .cloned()
@@ -453,6 +457,9 @@ pub async fn get_or_init_whisper<R: Runtime>(
                 }
                 crate::whisper_engine::ModelStatus::Corrupted { .. } => {
                     return Err(format!("Model '{}' is corrupted. Please delete it and download again from the settings.", model_to_load));
+                }
+                crate::whisper_engine::ModelStatus::Loaded(_) => {
+                    info!("Model '{}' is already loaded", model_to_load);
                 }
             }
         }

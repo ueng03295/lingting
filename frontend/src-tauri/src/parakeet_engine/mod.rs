@@ -1,26 +1,40 @@
-//! Parakeet (NVIDIA NeMo) speech recognition engine module.
-//!
-//! This module provides a high-performance alternative to Whisper for speech-to-text transcription.
-//! Parakeet offers significantly faster processing (up to Real time on modern hardware)
-//! with comparable accuracy.
-//!
-//! # Features
-//!
-//! - **High Performance**: Real time on M4 Max, 20x on Zen 3, 5x on Skylake
-//! - **Int8 Quantization**: Reduced memory footprint with minimal accuracy loss
-//! - **ONNX Runtime**: Cross-platform support via ONNX
-//! - **Unified API**: Compatible interface with Whisper engine
-//!
-//! # Module Structure
-//!
-//! - `parakeet_engine`: Main engine implementation
-//! - `model`: ONNX model wrapper and inference logic
-//! - `commands`: Tauri command interface for frontend integration
+// Stub module: parakeet_engine (removed for 翎听, replaced by qwen3-asr bridge)
+use std::path::PathBuf;
+use serde::{Deserialize, Serialize};
 
-pub mod parakeet_engine;
-pub mod model;
 pub mod commands;
 
-pub use parakeet_engine::{ParakeetEngine, ParakeetEngineError, QuantizationType, ModelInfo, ModelStatus, DownloadProgress};
-pub use model::{ParakeetModel, ParakeetError, TimestampedResult};
-pub use commands::*;
+/// Model status enum (stub)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ModelStatus {
+    Available,
+    Missing,
+    Downloading { progress: f32 },
+    Corrupted { error: String },
+    Error(String),
+    Loaded(String),
+}
+
+/// Model info (used by discover_models)
+#[derive(Debug, Clone)]
+pub struct ModelInfo {
+    pub name: String,
+    pub status: ModelStatus,
+    pub path: PathBuf,
+}
+
+/// Stub ParakeetEngine — no-op
+#[derive(Clone)]
+pub struct ParakeetEngine;
+
+impl ParakeetEngine {
+    pub fn new() -> Self { Self }
+    pub async fn get_current_model(&self) -> Option<String> { None }
+    pub async fn unload_model(&self) -> bool { true }
+    pub async fn is_model_loaded(&self) -> Result<bool, String> { Ok(false) }
+    pub async fn load_model(&self, _model: &str) -> Result<bool, String> { Ok(false) }
+    pub async fn discover_models(&self) -> Result<Vec<ModelInfo>, String> { Ok(vec![]) }
+    pub async fn transcribe_audio(&self, _audio: Vec<f32>) -> Result<String, String> {
+        Err("Parakeet engine disabled, use qwen3-asr bridge".to_string())
+    }
+}

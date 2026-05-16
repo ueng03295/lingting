@@ -39,7 +39,7 @@ impl TranscriptionProvider for WhisperProvider {
     }
 
     async fn is_model_loaded(&self) -> bool {
-        self.engine.is_model_loaded().await
+        self.engine.is_model_loaded().await.unwrap_or(false)
     }
 
     async fn get_current_model(&self) -> Option<String> {

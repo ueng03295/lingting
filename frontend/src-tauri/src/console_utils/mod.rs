@@ -1,5 +1,9 @@
-pub mod console_utils;
-pub mod commands;
+// Stub module: console_utils (no-op for 翎听)
+#[tauri::command]
+pub async fn show_console() -> Result<(), String> { Ok(()) }
 
-pub use console_utils::*;
-// Don't re-export commands to avoid conflicts - lib.rs will import directly
+#[tauri::command]
+pub async fn hide_console() -> Result<(), String> { Ok(()) }
+
+#[tauri::command]
+pub async fn toggle_console() -> Result<(), String> { Ok(()) }

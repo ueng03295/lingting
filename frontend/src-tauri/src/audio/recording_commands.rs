@@ -269,7 +269,8 @@ pub async fn start_recording_with_meeting_name<R: Runtime>(
                     audio_start_time: update.audio_start_time,
                     audio_end_time: update.audio_end_time,
                     duration: update.duration,
-                    display_time: update.timestamp.clone(), // Use wall-clock timestamp for display
+                    display_time: update.timestamp.clone(),
+                    timestamp: update.timestamp.clone(),
                     confidence: update.confidence,
                     sequence_id: update.sequence_id,
                 };
@@ -437,7 +438,8 @@ pub async fn start_recording_with_devices_and_meeting<R: Runtime>(
                     audio_start_time: update.audio_start_time,
                     audio_end_time: update.audio_end_time,
                     duration: update.duration,
-                    display_time: update.timestamp.clone(), // Use wall-clock timestamp for display
+                    display_time: update.timestamp.clone(),
+                    timestamp: update.timestamp.clone(),
                     confidence: update.confidence,
                     sequence_id: update.sequence_id,
                 };
@@ -780,7 +782,7 @@ pub async fn stop_recording<R: Runtime>(
             transcription_model.clone(),
             summary_provider.clone(),
             summary_model.clone(),
-            total_duration,
+            total_duration.unwrap_or(0.0),
             active_duration,
             pause_duration,
             microphone_device_type.to_string(),

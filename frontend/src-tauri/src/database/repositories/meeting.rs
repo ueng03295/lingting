@@ -89,9 +89,9 @@ impl MeetingsRepository {
                     id: t.id,
                     text: t.transcript,
                     timestamp: t.timestamp,
-                    audio_start_time: t.audio_start_time,
-                    audio_end_time: t.audio_end_time,
-                    duration: t.duration,
+                    audio_start_time: t.audio_start_time.unwrap_or(0.0),
+                    audio_end_time: t.audio_end_time.unwrap_or(0.0),
+                    duration: t.duration.unwrap_or(0.0),
                 })
                 .collect::<Vec<_>>();
 

@@ -1,5 +1,5 @@
-pub mod openrouter;
-pub mod commands;
-
-pub use openrouter::*;
-// Don't re-export commands to avoid conflicts - lib.rs will import directly
+// Stub module: openrouter (no-op for 翎听)
+#[tauri::command]
+pub async fn get_openrouter_models() -> Result<serde_json::Value, String> {
+    Ok(serde_json::json!({"models": []}))
+}

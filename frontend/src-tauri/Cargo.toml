@@ -1,8 +1,8 @@
 [package]
 name = "linglisten"
-version = "0.3.0"
-description = "LingListen - Meeting transcription with OpenAI-compatible ASR support"
-authors = ["Sujith S"]
+version = "1.0.0"
+description = "翎听 (LingListen) — Voice platform with meeting transcription powered by qwen3-asr"
+authors = ["Ling"]
 license = "MIT"
 repository = "https://github.com/Zackriya-Solutions/meeting-minutes"
 edition = "2021"
@@ -119,6 +119,7 @@ dashmap = "6.1.0"
 
 # Directories
 dirs = "5.0.1"
+libc = "0.2"
 
 # Additional dependencies for notification system
 url = "2.5.0"

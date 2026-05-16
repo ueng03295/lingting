@@ -16,6 +16,7 @@ use super::incremental_saver::IncrementalAudioSaver;
 pub struct TranscriptSegment {
     pub id: String,
     pub text: String,
+    pub timestamp: String,       // ISO timestamp
     pub audio_start_time: f64, // Seconds from recording start
     pub audio_end_time: f64,   // Seconds from recording start
     pub duration: f64,          // Segment duration in seconds
@@ -123,6 +124,7 @@ impl RecordingSaver {
         let segment = TranscriptSegment {
             id: format!("seg_{}", chrono::Utc::now().timestamp_millis()),
             text,
+            timestamp: chrono::Utc::now().to_rfc3339(),
             audio_start_time: 0.0,
             audio_end_time: 0.0,
             duration: 0.0,
