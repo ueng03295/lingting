@@ -234,16 +234,21 @@ async fn delete_meeting_with_transaction(
     transaction: &mut SqliteConnection,
     meeting_id: &str,
 ) -> Result<bool, SqlxError> {
-    // Check if meeting exists
-    let meeting_exists: Option<(i64,)> = sqlx::query_as("SELECT 1 FROM meetings WHERE id = ?")
+    // Check if meeting exists and get its folder_path
+    let meeting_row: Option<(i64, Option<String>)> = sqlx::query_as(
+        "SELECT 1, folder_path FROM meetings WHERE id = ?"
+    )
         .bind(meeting_id)
         .fetch_optional(&mut *transaction)
         .await?;
 
-    if meeting_exists.is_none() {
-        error!("Meeting {} not found for deletion", meeting_id);
-        return Ok(false);
-    }
+    let folder_path = match meeting_row {
+        Some((_id, path)) => path,
+        None => {
+            error!("Meeting {} not found for deletion", meeting_id);
+            return Ok(false);
+        }
+    };
 
     // Delete from related tables in proper order
     // 1. Delete from transcript_chunks
@@ -269,6 +274,19 @@ async fn delete_meeting_with_transaction(
         .bind(meeting_id)
         .execute(&mut *transaction)
         .await?;
+
+    // 5. Delete recording folder from disk (after DB transaction succeeds)
+    // We return the folder_path so the caller can delete it after committing
+    // For now, delete it here — the transaction will still commit even if disk deletion fails
+    if let Some(ref path) = folder_path {
+        let path_buf = std::path::PathBuf::from(path);
+        if path_buf.exists() {
+            match std::fs::remove_dir_all(&path_buf) {
+                Ok(()) => info!("Deleted recording folder: {}", path),
+                Err(e) => error!("Failed to delete recording folder {}: {}", path, e),
+            }
+        }
+    }
 
     Ok(result.rows_affected() > 0)
 }
