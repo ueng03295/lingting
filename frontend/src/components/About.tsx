@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import Image from 'next/image';
-import AnalyticsConsentSwitch from "./AnalyticsConsentSwitch";
+// AnalyticsConsentSwitch removed for LingListen
 import { UpdateDialog } from "./UpdateDialog";
 import { updateService, UpdateInfo } from '@/services/updateService';
 import { Button } from './ui/button';
@@ -143,7 +143,7 @@ export function About() {
                     Built by Zackriya Solutions
                 </p>
             </div>
-            <AnalyticsConsentSwitch />
+            {/* AnalyticsConsentSwitch removed for LingListen */}
 
             {/* Update Dialog */}
             <UpdateDialog
