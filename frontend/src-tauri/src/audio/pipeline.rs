@@ -697,11 +697,6 @@ pub struct AudioPipeline {
     // Recording sender for pre-mixed audio
     recording_sender_for_mixed: Option<mpsc::UnboundedSender<AudioChunk>>,
     // Streaming transcription: accumulate mixed audio and send periodically
-    streaming_audio_buffer: Vec<f32>,
-    streaming_buffer_start_time: f64,
-    // Target duration for streaming chunks in seconds (2s = partial results every ~2s)
-    streaming_chunk_duration_secs: f64,
-    streaming_chunks_sent: u64,
 }
 
 impl AudioPipeline {
@@ -764,10 +759,6 @@ impl AudioPipeline {
             mixer,
             recording_sender_for_mixed: None,  // Will be set by manager
             // Streaming transcription: buffer mixed audio for periodic streaming ASR
-            streaming_audio_buffer: Vec::new(),
-            streaming_buffer_start_time: 0.0,
-            streaming_chunk_duration_secs: 2.0,  // Send streaming chunk every 2s
-            streaming_chunks_sent: 0,
         }
     }
 
@@ -839,65 +830,9 @@ impl AudioPipeline {
                             // Previous 2x gain was causing excessive limiting/distortion
                             let mixed_with_gain = mixed_clean;
 
-                            // STREAMING TRANSCRIPTION: Accumulate mixed audio and send
-                            // periodic streaming chunks to ASR for real-time partial results.
-                            // These are sent alongside VAD segments (which produce final results).
-                            // The streaming path provides incremental text as the user speaks,
-                            // while VAD segments finalize each speech utterance.
-                            {
-                                if self.streaming_audio_buffer.is_empty() {
-                                    // Mark start time of this streaming buffer accumulation
-                                    self.streaming_buffer_start_time = chunk.timestamp;
-                                }
-                                self.streaming_audio_buffer.extend_from_slice(&mixed_with_gain);
-
-                                // Check if we have enough audio for a streaming chunk
-                                let target_samples = (self.streaming_chunk_duration_secs * self.sample_rate as f64) as usize;
-                                if self.streaming_audio_buffer.len() >= target_samples {
-                                    // Resample to 16kHz for transcription
-                                    let streaming_16k = if self.sample_rate != 16000 {
-                                        crate::audio::audio_processing::resample_audio(
-                                            &self.streaming_audio_buffer,
-                                            self.sample_rate,
-                                            16000,
-                                        )
-                                    } else {
-                                        self.streaming_audio_buffer.clone()
-                                    };
-
-                                    // Only send if we have enough samples for meaningful ASR
-                                    // (minimum 0.5s at 16kHz = 8000 samples)
-                                    if streaming_16k.len() >= 8000 {
-                                        self.chunk_id_counter += 1;
-                                        let streaming_chunk = AudioChunk {
-                                            data: streaming_16k,
-                                            sample_rate: 16000,
-                                            timestamp: self.streaming_buffer_start_time,
-                                            chunk_id: self.chunk_id_counter,
-                                            device_type: DeviceType::Microphone,
-                                            is_streaming: true,  // This is a streaming/partial chunk
-                                        };
-                                        self.streaming_chunks_sent += 1;
-                                        if let Err(e) = self.transcription_sender.send(streaming_chunk) {
-                                            warn!("Failed to send streaming transcription chunk: {}", e);
-                                        } else if self.streaming_chunks_sent % 5 == 0 {
-                                            info!("📤 Sent streaming chunk #{} ({:.1}s audio)",
-                                                  self.streaming_chunks_sent,
-                                                  self.streaming_audio_buffer.len() as f64 / self.sample_rate as f64);
-                                        }
-                                    }
-
-                                    // Reset streaming buffer (keep last 0.3s for overlap/continuity)
-                                    let overlap_samples = (0.3 * self.sample_rate as f64) as usize;
-                                    if self.streaming_audio_buffer.len() > overlap_samples {
-                                        let start = self.streaming_audio_buffer.len() - overlap_samples;
-                                        self.streaming_audio_buffer = self.streaming_audio_buffer[start..].to_vec();
-                                    }
-                                    // Update start time for overlap
-                                    self.streaming_buffer_start_time = chunk.timestamp
-                                        - (self.streaming_audio_buffer.len() as f64 / self.sample_rate as f64);
-                                }
-                            }
+                            // NOTE: Streaming path DISABLED after adding dual VAD for speaker separation.
+                            // Streaming and VAD were both sending the same audio → duplicate transcripts.
+                            // VAD (with ASR chunk_duration=5.0) already provides results every few seconds.
 
                             // STEP 3: VAD on each source SEPARATELY — Mic=我, System=对方
                             {
