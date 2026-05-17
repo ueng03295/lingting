@@ -69,27 +69,27 @@ pub async fn validate_transcription_model_ready<R: Runtime>(app: &AppHandle<R>) 
             config
         }
         Ok(None) => {
-            info!("📝 No transcript config found, defaulting to parakeet");
+            info!("📝 No transcript config found, defaulting to openaiCompatible (qwen3-asr)");
             crate::api::api::TranscriptConfig {
-                provider: "parakeet".to_string(),
-                model: crate::config::DEFAULT_PARAKEET_MODEL.to_string(),
+                provider: "openaiCompatible".to_string(),
+                model: "qwen3-asr-1.7b".to_string(),
                 api_key: None,
                 endpoint: None,
-                language: None,
-                openai_compatible_endpoint: None,
+                openai_compatible_endpoint: Some("http://127.0.0.1:8765".to_string()),
                 openai_compatible_api_key: None,
+                language: None,
             }
         }
         Err(e) => {
-            warn!("⚠️ Failed to get transcript config: {}, defaulting to parakeet", e);
+            warn!("⚠️ Failed to get transcript config: {}, defaulting to openaiCompatible (qwen3-asr)", e);
             crate::api::api::TranscriptConfig {
-                provider: "parakeet".to_string(),
-                model: crate::config::DEFAULT_PARAKEET_MODEL.to_string(),
+                provider: "openaiCompatible".to_string(),
+                model: "qwen3-asr-1.7b".to_string(),
                 api_key: None,
                 endpoint: None,
-                language: None,
-                openai_compatible_endpoint: None,
+                openai_compatible_endpoint: Some("http://127.0.0.1:8765".to_string()),
                 openai_compatible_api_key: None,
+                language: None,
             }
         }
     };
@@ -120,28 +120,9 @@ pub async fn validate_transcription_model_ready<R: Runtime>(app: &AppHandle<R>) 
             }
         }
         "parakeet" => {
-            info!("🔍 Validating Parakeet model...");
-            // Ensure parakeet engine is initialized first
-            if let Err(init_error) = crate::parakeet_engine::commands::parakeet_init().await {
-                warn!("❌ Failed to initialize Parakeet engine: {}", init_error);
-                return Err(format!(
-                    "Failed to initialize Parakeet speech recognition: {}",
-                    init_error
-                ));
-            }
-
-            // Use the validation command that includes auto-discovery and loading
-            // This matches the Whisper behavior for consistency
-            match crate::parakeet_engine::commands::parakeet_validate_model_ready_with_config(app).await {
-                Ok(model_name) => {
-                    info!("✅ Parakeet model validation successful: {} is ready", model_name);
-                    Ok(())
-                }
-                Err(e) => {
-                    warn!("❌ Parakeet model validation failed: {}", e);
-                    Err(e)
-                }
-            }
+            // Parakeet is stubbed out — skip validation, allow recording
+            info!("🔍 Parakeet provider selected (stub) — skipping model validation");
+            Ok(())
         }
         "openaiCompatible" => {
             info!("🔍 Validating OpenAI-Compatible transcription server...");
@@ -195,27 +176,27 @@ pub async fn get_or_init_transcription_engine<R: Runtime>(
             config
         }
         Ok(None) => {
-            info!("📝 No transcript config found, defaulting to parakeet");
+            info!("📝 No transcript config found, defaulting to openaiCompatible (qwen3-asr)");
             crate::api::api::TranscriptConfig {
-                provider: "parakeet".to_string(),
-                model: crate::config::DEFAULT_PARAKEET_MODEL.to_string(),
+                provider: "openaiCompatible".to_string(),
+                model: "qwen3-asr-1.7b".to_string(),
                 api_key: None,
                 endpoint: None,
-                language: None,
-                openai_compatible_endpoint: None,
+                openai_compatible_endpoint: Some("http://127.0.0.1:8765".to_string()),
                 openai_compatible_api_key: None,
+                language: None,
             }
         }
         Err(e) => {
-            warn!("⚠️ Failed to get transcript config: {}, defaulting to parakeet", e);
+            warn!("⚠️ Failed to get transcript config: {}, defaulting to openaiCompatible (qwen3-asr)", e);
             crate::api::api::TranscriptConfig {
-                provider: "parakeet".to_string(),
-                model: crate::config::DEFAULT_PARAKEET_MODEL.to_string(),
+                provider: "openaiCompatible".to_string(),
+                model: "qwen3-asr-1.7b".to_string(),
                 api_key: None,
                 endpoint: None,
-                language: None,
-                openai_compatible_endpoint: None,
+                openai_compatible_endpoint: Some("http://127.0.0.1:8765".to_string()),
                 openai_compatible_api_key: None,
+                language: None,
             }
         }
     };
