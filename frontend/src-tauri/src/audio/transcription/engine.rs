@@ -131,6 +131,17 @@ pub async fn validate_transcription_model_ready<R: Runtime>(app: &AppHandle<R>) 
             if endpoint.is_empty() {
                 return Err("OpenAI-Compatible endpoint is not configured. Please set the server URL in Settings.".to_string());
             }
+
+            // Ensure ASR server is running before testing connectivity
+            if let Some(asr_state) = app.try_state::<crate::asr_bridge::SharedASRState>() {
+                let mut guard = asr_state.write().await;
+                if let Err(e) = guard.process.ensure_running().await {
+                    warn!("Failed to auto-start ASR server: {}", e);
+                } else {
+                    info!("ASR server auto-started for validation");
+                }
+            }
+
             // Test connectivity
             match super::openai_compatible_provider::test_openai_compatible_connection(
                 &endpoint,
