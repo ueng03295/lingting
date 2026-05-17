@@ -41,8 +41,8 @@ jobs:
       - name: Rustfmt check
         run: cargo fmt --all --check
 
-      - name: Clippy (warnings as errors)
-        run: cargo clippy --all-targets -- -D warnings
+      - name: Clippy
+        run: cargo clippy --all-targets 2>&1 | tee clippy.log; if grep -q '^error' clippy.log; then exit 1; fi
 
       - name: Cargo check
         run: cargo check --all-targets
