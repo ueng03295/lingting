@@ -276,9 +276,7 @@ async fn delete_meeting_with_transaction(
         .execute(&mut *transaction)
         .await?;
 
-    // 5. Delete recording folder from disk (after DB transaction succeeds)
-    // We return the folder_path so the caller can delete it after committing
-    // For now, delete it here — the transaction will still commit even if disk deletion fails
+    // 5. Delete recording folder from disk
     if let Some(ref path) = folder_path {
         let path_buf = std::path::PathBuf::from(path);
         if path_buf.exists() {
@@ -286,7 +284,11 @@ async fn delete_meeting_with_transaction(
                 Ok(()) => info!("Deleted recording folder: {}", path),
                 Err(e) => error!("Failed to delete recording folder {}: {}", path, e),
             }
+        } else {
+            info!("Recording folder already gone: {}", path);
         }
+    } else {
+        info!("No folder_path for meeting {}, skipping disk cleanup", meeting_id);
     }
 
     Ok(result.rows_affected() > 0)
