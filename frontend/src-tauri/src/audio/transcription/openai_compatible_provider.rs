@@ -182,18 +182,7 @@ impl TranscriptionProvider for OpenAICompatibleProvider {
             .as_bool()
             .unwrap_or(false);
 
-        // Also check segments for partial results when available
-        // If any segment is partial, the whole result is partial
-        if !is_partial {
-            if let Some(segments) = response_json["segments"].as_array() {
-                for seg in segments {
-                    if seg["is_partial"].as_bool().unwrap_or(false) {
-                        // Found a partial segment in the response
-                        // The overall result is partial if this isn't the final segment
-                    }
-                }
-            }
-        }
+        // is_partial already set from top-level response field (ASR server computes it correctly)
 
         if text.is_empty() {
             info!("OpenAI-Compatible: Transcription returned empty text");
