@@ -262,7 +262,6 @@ pub async fn api_save_meeting_title(
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct SaveMeetingResponse {
     pub meeting_id: String,
 }
