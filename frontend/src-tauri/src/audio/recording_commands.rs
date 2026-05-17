@@ -92,12 +92,11 @@ pub async fn start_recording_with_meeting_name<R: Runtime>(
     if let Err(validation_error) = transcription::validate_transcription_model_ready(&app).await {
         error!("Model validation failed: {}", validation_error);
 
-        // Emit error event for frontend - actionable: false to show toast instead of modal
-        // (download progress is already shown in top-right toast)
+        // Emit error event for frontend with the actual validation error message
         let _ = app.emit("transcription-error", serde_json::json!({
-            "error": validation_error,
-            "userMessage": "Recording cannot start: Transcription model is still downloading. Please wait for the download to complete.",
-            "actionable": false
+            "error": &validation_error,
+            "userMessage": validation_error,
+            "actionable": true
         }));
 
         return Err(validation_error);
@@ -336,12 +335,11 @@ pub async fn start_recording_with_devices_and_meeting<R: Runtime>(
     if let Err(validation_error) = transcription::validate_transcription_model_ready(&app).await {
         error!("Model validation failed: {}", validation_error);
 
-        // Emit error event for frontend - actionable: false to show toast instead of modal
-        // (download progress is already shown in top-right toast)
+        // Emit error event for frontend with the actual validation error message
         let _ = app.emit("transcription-error", serde_json::json!({
-            "error": validation_error,
-            "userMessage": "Recording cannot start: Transcription model is still downloading. Please wait for the download to complete.",
-            "actionable": false
+            "error": &validation_error,
+            "userMessage": validation_error,
+            "actionable": true
         }));
 
         return Err(validation_error);
