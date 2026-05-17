@@ -31,6 +31,8 @@ pub struct TranscriptSegment {
     pub confidence: f32,
     #[serde(default)]
     pub sequence_id: u64,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub speaker: String,          // Speaker label: "我" or "对方"
     // Legacy field from frontend (ignored on save, but must not cause deserialization error)
     #[serde(default, skip_serializing)]
     pub chunk_start_time: Option<f64>,
@@ -148,6 +150,7 @@ impl RecordingSaver {
             display_time: "[00:00]".to_string(),
             confidence: 1.0,
             sequence_id: 0,
+            speaker: String::new(),
             chunk_start_time: None,
             is_partial: None,
         };

@@ -26,16 +26,16 @@ pub fn reset_speech_detected_flag() {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TranscriptUpdate {
     pub text: String,
-    pub timestamp: String, // Wall-clock time for reference (e.g., "14:30:05")
+    pub timestamp: String,
     pub source: String,
     pub sequence_id: u64,
-    pub chunk_start_time: f64, // Legacy field, kept for compatibility
+    pub chunk_start_time: f64,
     pub is_partial: bool,
     pub confidence: f32,
-    // NEW: Recording-relative timestamps for playback sync
-    pub audio_start_time: f64, // Seconds from recording start (e.g., 125.3)
-    pub audio_end_time: f64,   // Seconds from recording start (e.g., 128.6)
-    pub duration: f64,          // Segment duration in seconds (e.g., 3.3)
+    pub speaker: String,       // "我" or "对方"
+    pub audio_start_time: f64,
+    pub audio_end_time: f64,
+    pub duration: f64,
 }
 
 // NOTE: get_transcript_history and get_recording_meeting_name functions
@@ -143,6 +143,7 @@ pub fn start_transcription_task<R: Runtime>(
                             let chunk_timestamp = chunk.timestamp;
                             let chunk_duration = chunk.data.len() as f64 / chunk.sample_rate as f64;
                             let chunk_is_streaming = chunk.is_streaming;  // Save before move
+                            let chunk_speaker = chunk.device_type.speaker_label().to_string();  // "我" or "对方"
 
                             // Transcribe with provider-agnostic approach
                             match transcribe_chunk_with_provider(
@@ -220,6 +221,7 @@ pub fn start_transcription_task<R: Runtime>(
                                             audio_start_time,
                                             audio_end_time,
                                             duration: chunk_duration,
+                                            speaker: chunk_speaker.clone(),
                                         };
 
                                         if let Err(e) = app_clone.emit("transcript-update", &update)

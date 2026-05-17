@@ -8,10 +8,19 @@ use super::devices::AudioDevice;
 use super::buffer_pool::AudioBufferPool;
 
 /// Device type for audio chunks
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DeviceType {
     Microphone,
     System,
+}
+
+impl DeviceType {
+    pub fn speaker_label(&self) -> &'static str {
+        match self {
+            DeviceType::Microphone => "我",
+            DeviceType::System => "对方",
+        }
+    }
 }
 
 /// Audio chunk with metadata for processing
