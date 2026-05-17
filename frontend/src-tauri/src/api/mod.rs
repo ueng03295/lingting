@@ -54,6 +54,7 @@ pub struct MeetingDetails {
     pub title: String,
     pub created_at: String,
     pub updated_at: String,
+    pub folder_path: Option<String>,
     pub transcripts: Vec<MeetingTranscript>,
 }
 
@@ -193,12 +194,12 @@ pub async fn api_search_transcripts(
 
 #[tauri::command]
 pub async fn api_get_meeting(
-    id: String,
+    meeting_id: String,
     _app: AppHandle<tauri::Wry>,
     state: State<'_, AppState>,
 ) -> Result<serde_json::Value, String> {
     let pool = state.db_manager.pool();
-    match MeetingsRepository::get_meeting(pool, &id).await {
+    match MeetingsRepository::get_meeting(pool, &meeting_id).await {
         Ok(Some(meeting)) => Ok(serde_json::to_value(meeting).unwrap_or(serde_json::json!({}))),
         Ok(None) => Ok(serde_json::json!({})),
         Err(e) => Err(format!("Failed to get meeting: {}", e)),
@@ -207,12 +208,12 @@ pub async fn api_get_meeting(
 
 #[tauri::command]
 pub async fn api_get_meeting_metadata(
-    id: String,
+    meeting_id: String,
     _app: AppHandle<tauri::Wry>,
     state: State<'_, AppState>,
 ) -> Result<serde_json::Value, String> {
     let pool = state.db_manager.pool();
-    match MeetingsRepository::get_meeting_metadata(pool, &id).await {
+    match MeetingsRepository::get_meeting_metadata(pool, &meeting_id).await {
         Ok(Some(metadata)) => Ok(serde_json::to_value(metadata).unwrap_or(serde_json::json!({}))),
         Ok(None) => Ok(serde_json::json!({})),
         Err(e) => Err(format!("Failed to get meeting metadata: {}", e)),
@@ -221,12 +222,12 @@ pub async fn api_get_meeting_metadata(
 
 #[tauri::command]
 pub async fn api_get_meeting_transcripts(
-    id: String,
+    meeting_id: String,
     _app: AppHandle<tauri::Wry>,
     state: State<'_, AppState>,
 ) -> Result<serde_json::Value, String> {
     let pool = state.db_manager.pool();
-    match MeetingsRepository::get_meeting(pool, &id).await {
+    match MeetingsRepository::get_meeting(pool, &meeting_id).await {
         Ok(Some(meeting)) => Ok(serde_json::to_value(meeting).unwrap_or(serde_json::json!({}))),
         Ok(None) => Ok(serde_json::json!({})),
         Err(e) => Err(format!("Failed to get meeting transcripts: {}", e)),
@@ -235,12 +236,12 @@ pub async fn api_get_meeting_transcripts(
 
 #[tauri::command]
 pub async fn api_delete_meeting(
-    id: String,
+    meeting_id: String,
     _app: AppHandle<tauri::Wry>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let pool = state.db_manager.pool();
-    MeetingsRepository::delete_meeting(pool, &id)
+    MeetingsRepository::delete_meeting(pool, &meeting_id)
         .await
         .map(|_| ())
         .map_err(|e| format!("Failed to delete meeting: {}", e))
@@ -248,13 +249,13 @@ pub async fn api_delete_meeting(
 
 #[tauri::command]
 pub async fn api_save_meeting_title(
-    id: String,
+    meeting_id: String,
     title: String,
     _app: AppHandle<tauri::Wry>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let pool = state.db_manager.pool();
-    MeetingsRepository::update_meeting_title(pool, &id, &title)
+    MeetingsRepository::update_meeting_title(pool, &meeting_id, &title)
         .await
         .map(|_| ())
         .map_err(|e| format!("Failed to save meeting title: {}", e))
@@ -344,8 +345,36 @@ pub async fn api_update_profile(
 }
 
 #[tauri::command]
-pub async fn open_meeting_folder(id: String, app: AppHandle<tauri::Wry>) -> Result<(), String> {
-    log::info!("Open meeting folder requested for: {}", id);
+pub async fn open_meeting_folder(
+    meeting_id: String,
+    app: AppHandle<tauri::Wry>,
+) -> Result<(), String> {
+    log::info!("Open meeting folder requested for: {}", meeting_id);
+
+    // Look up the meeting's folder_path from database
+    let state = app.state::<AppState>();
+    let pool = state.db_manager.pool();
+    match MeetingsRepository::get_meeting(pool, &meeting_id).await {
+        Ok(Some(meeting)) => {
+            if let Some(folder_path) = meeting.folder_path {
+                log::info!("Opening meeting folder: {}", folder_path);
+                #[cfg(target_os = "macos")]
+                { let _ = std::process::Command::new("open").arg(&folder_path).spawn(); }
+                #[cfg(target_os = "windows")]
+                { let _ = std::process::Command::new("explorer").arg(&folder_path).spawn(); }
+                #[cfg(target_os = "linux")]
+                { let _ = std::process::Command::new("xdg-open").arg(&folder_path).spawn(); }
+            } else {
+                log::warn!("Meeting {} has no folder_path", meeting_id);
+            }
+        }
+        Ok(None) => {
+            log::warn!("Meeting {} not found", meeting_id);
+        }
+        Err(e) => {
+            log::error!("Failed to look up meeting {}: {}", meeting_id, e);
+        }
+    }
     Ok(())
 }
 
@@ -362,6 +391,12 @@ pub async fn debug_backend_connection(_url: String, _key: Option<String>) -> Res
 #[tauri::command]
 pub async fn open_external_url(url: String) -> Result<(), String> {
     log::info!("Open external URL requested: {}", url);
+    #[cfg(target_os = "macos")]
+    { let _ = std::process::Command::new("open").arg(&url).spawn(); }
+    #[cfg(target_os = "windows")]
+    { let _ = std::process::Command::new("explorer").arg(&url).spawn(); }
+    #[cfg(target_os = "linux")]
+    { let _ = std::process::Command::new("xdg-open").arg(&url).spawn(); }
     Ok(())
 }
 

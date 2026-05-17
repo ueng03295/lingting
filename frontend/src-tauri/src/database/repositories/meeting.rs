@@ -100,6 +100,7 @@ impl MeetingsRepository {
                 title: meeting.title,
                 created_at: meeting.created_at.0.to_rfc3339(),
                 updated_at: meeting.updated_at.0.to_rfc3339(),
+                folder_path: meeting.folder_path,
                 transcripts: meeting_transcripts,
             }))
         } else {
