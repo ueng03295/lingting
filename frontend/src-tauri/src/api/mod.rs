@@ -260,17 +260,39 @@ pub async fn api_save_meeting_title(
         .map_err(|e| format!("Failed to save meeting title: {}", e))
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveMeetingResponse {
+    pub meeting_id: String,
+}
+
 #[tauri::command]
 pub async fn api_save_transcript(
-    id: String,
-    _transcript: serde_json::Value,
+    meeting_title: String,
+    transcripts: Vec<TranscriptSegment>,
+    folder_path: Option<String>,
     _app: AppHandle<tauri::Wry>,
-    _state: State<'_, AppState>,
-) -> Result<(), String> {
-    // transcript is expected to be a TranscriptSegment or similar JSON
-    // For now, just log it — the audio pipeline saves transcripts directly
-    log::info!("Save transcript called for meeting {}", id);
-    Ok(())
+    state: State<'_, AppState>,
+) -> Result<SaveMeetingResponse, String> {
+    let pool = state.db_manager.pool();
+    log::info!(
+        "Saving meeting '{}' with {} transcript segments, folder_path: {:?}",
+        meeting_title,
+        transcripts.len(),
+        folder_path
+    );
+
+    let meeting_id = TranscriptsRepository::save_transcript(
+        pool,
+        &meeting_title,
+        &transcripts,
+        folder_path,
+    )
+    .await
+    .map_err(|e| format!("Failed to save meeting: {}", e))?;
+
+    log::info!("Meeting saved successfully with id: {}", meeting_id);
+    Ok(SaveMeetingResponse { meeting_id })
 }
 
 #[tauri::command]
