@@ -1,4 +1,4 @@
-name: "CI - Lint & Test"
+name: "CI - Test & Audit"
 
 on:
   push:
@@ -6,34 +6,18 @@ on:
   pull_request:
     branches: [linglisten-v1]
 
-env:
-  CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
-
 jobs:
-  integration-test:
-    name: Integration Tests + Audit
+  test:
+    name: Smoke Tests + Audit
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 3
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Run integration tests
-        run: cargo test -p ci-tests
+      - name: Run smoke tests (Python + sqlite3)
+        run: python3 scripts/smoke-test.py
 
       - name: Static audit — Tauri commands
         run: python3 scripts/audit-tauri-commands.py
