@@ -12,17 +12,34 @@ use super::audio_processing::create_meeting_folder;
 use super::incremental_saver::IncrementalAudioSaver;
 
 /// Structured transcript segment for JSON export
+/// Compatible with frontend Transcript interface where many fields are optional.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TranscriptSegment {
     pub id: String,
     pub text: String,
-    pub timestamp: String,       // ISO timestamp
-    pub audio_start_time: f64, // Seconds from recording start
-    pub audio_end_time: f64,   // Seconds from recording start
-    pub duration: f64,          // Segment duration in seconds
-    pub display_time: String,   // Formatted time for display like "[02:15]"
+    pub timestamp: String,           // ISO timestamp or wall-clock time
+    #[serde(default)]
+    pub audio_start_time: f64,     // Seconds from recording start
+    #[serde(default)]
+    pub audio_end_time: f64,       // Seconds from recording start
+    #[serde(default)]
+    pub duration: f64,            // Segment duration in seconds
+    #[serde(default = "default_display_time")]
+    pub display_time: String,     // Formatted time for display like "[02:15]"
+    #[serde(default)]
     pub confidence: f32,
+    #[serde(default)]
     pub sequence_id: u64,
+    // Legacy field from frontend (ignored on save, but must not cause deserialization error)
+    #[serde(default, skip_serializing)]
+    pub chunk_start_time: Option<f64>,
+    #[serde(default, skip_serializing)]
+    pub is_partial: Option<bool>,
+}
+
+fn default_display_time() -> String {
+    String::new()
 }
 
 /// Meeting metadata structure
@@ -131,6 +148,8 @@ impl RecordingSaver {
             display_time: "[00:00]".to_string(),
             confidence: 1.0,
             sequence_id: 0,
+            chunk_start_time: None,
+            is_partial: None,
         };
         self.add_transcript_segment(segment);
     }

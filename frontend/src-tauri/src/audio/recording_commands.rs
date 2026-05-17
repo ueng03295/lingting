@@ -272,6 +272,8 @@ pub async fn start_recording_with_meeting_name<R: Runtime>(
                     timestamp: update.timestamp.clone(),
                     confidence: update.confidence,
                     sequence_id: update.sequence_id,
+                    chunk_start_time: None,
+                    is_partial: None,
                 };
 
                 // Save to recording manager
@@ -440,6 +442,8 @@ pub async fn start_recording_with_devices_and_meeting<R: Runtime>(
                     timestamp: update.timestamp.clone(),
                     confidence: update.confidence,
                     sequence_id: update.sequence_id,
+                    chunk_start_time: None,
+                    is_partial: None,
                 };
 
                 // Save to recording manager

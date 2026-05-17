@@ -54,6 +54,8 @@ pub(crate) fn create_transcript_segments(transcripts: &[(String, f64, f64)]) -> 
                 display_time: format!("[{:02}:{:02}]", (start_seconds / 60.0) as u32, (start_seconds % 60.0) as u32),
                 confidence: 1.0,
                 sequence_id: 0,
+                chunk_start_time: None,
+                is_partial: None,
             }
         })
         .collect()
