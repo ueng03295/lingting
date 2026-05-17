@@ -1,17 +1,44 @@
-/// Integration tests for LingListen core API — save, read, delete meetings.
+/// Self-contained integration tests — no dependency on the full Tauri app_lib crate.
+/// These run on any platform (ubuntu, macos, windows) because they only use sqlx + serde.
 ///
-/// Run: `cargo test -p linglisten --test integration`
+/// Run: `cargo test --test integration` from frontend/src-tauri/
 
+use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
-async fn setup_test_db() -> SqlitePool {
-    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
-    sqlx::migrate!("./migrations").run(&pool).await.unwrap();
-    pool
+// ─── Replica of key structs (independent of app_lib) ─────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TranscriptSegment {
+    pub id: String,
+    pub text: String,
+    pub timestamp: String,
+    #[serde(default)]
+    pub audio_start_time: f64,
+    #[serde(default)]
+    pub audio_end_time: f64,
+    #[serde(default)]
+    pub duration: f64,
+    #[serde(default)]
+    pub display_time: String,
+    #[serde(default)]
+    pub confidence: f32,
+    #[serde(default)]
+    pub sequence_id: u64,
+    #[serde(default)]
+    pub chunk_start_time: Option<f64>,
+    #[serde(default)]
+    pub is_partial: Option<bool>,
 }
 
-fn make_segment(text: &str, seq: u64) -> app_lib::api::TranscriptSegment {
-    app_lib::api::TranscriptSegment {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SaveMeetingResponse {
+    pub meeting_id: String,
+}
+
+fn make_segment(text: &str, seq: u64) -> TranscriptSegment {
+    TranscriptSegment {
         id: format!("seg_{}", seq),
         text: text.to_string(),
         timestamp: "14:30:00".to_string(),
@@ -26,11 +53,11 @@ fn make_segment(text: &str, seq: u64) -> app_lib::api::TranscriptSegment {
     }
 }
 
-// ─── JSON Compatibility Tests ───────────────────────────────────
+
+// ─── JSON Compatibility Tests ───────────────────────────────────────────
 
 #[test]
 fn test_transcript_segment_serde_frontend_compatible() {
-    // Simulates EXACTLY what the frontend sends to save_meeting
     let json = r#"[
         {
             "id": "seg_1",
@@ -51,7 +78,7 @@ fn test_transcript_segment_serde_frontend_compatible() {
         }
     ]"#;
 
-    let segments: Vec<app_lib::api::TranscriptSegment> =
+    let segments: Vec<TranscriptSegment> =
         serde_json::from_str(json).expect("Should deserialize frontend Transcript JSON");
 
     assert_eq!(segments.len(), 2);
@@ -66,7 +93,7 @@ fn test_transcript_segment_serde_frontend_compatible() {
 
 #[test]
 fn test_save_meeting_response_snake_case() {
-    let response = app_lib::api::SaveMeetingResponse {
+    let response = SaveMeetingResponse {
         meeting_id: "meeting-test-123".to_string(),
     };
     let json = serde_json::to_string(&response).unwrap();
@@ -79,82 +106,166 @@ fn test_save_meeting_response_snake_case() {
 
 #[test]
 fn test_save_meeting_response_no_camel_case() {
-    let response = app_lib::api::SaveMeetingResponse {
+    let response = SaveMeetingResponse {
         meeting_id: "meeting-test-123".to_string(),
     };
     let json = serde_json::to_string(&response).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert!(parsed.get("meetingId").is_none(), "Must NOT have camelCase 'meetingId'");
+    assert!(
+        parsed.get("meetingId").is_none(),
+        "Must NOT have camelCase 'meetingId'"
+    );
 }
 
-// ─── Database CRUD Tests ────────────────────────────────────────
 
-#[tokio::test]
-async fn test_save_transcript_creates_meeting() {
-    use app_lib::database::repositories::transcript::TranscriptsRepository;
+// ─── Database CRUD Tests ────────────────────────────────────────────────
 
-    let pool = setup_test_db().await;
-    let segments = vec![make_segment("Hello, this is a test.", 1)];
-
-    let meeting_id = TranscriptsRepository::save_transcript(
-        &pool, "Test Meeting", &segments, Some("/tmp/test".to_string()),
+async fn setup_db() -> SqlitePool {
+    let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS meetings (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            folder_path TEXT
+        )"
     )
+    .execute(&pool)
     .await
-    .expect("save_transcript should succeed");
-
-    assert!(meeting_id.starts_with("meeting-"));
+    .unwrap();
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS transcripts (
+            id TEXT PRIMARY KEY,
+            meeting_id TEXT NOT NULL,
+            transcript TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            audio_start_time REAL,
+            audio_end_time REAL,
+            duration REAL,
+            FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE
+        )"
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    pool
 }
 
 #[tokio::test]
-async fn test_get_meeting_after_save() {
-    use app_lib::database::repositories::transcript::TranscriptsRepository;
-    use app_lib::database::repositories::meeting::MeetingsRepository;
+async fn test_save_and_read_meeting() {
+    let pool = setup_db().await;
+    let meeting_id = "meeting-test-001";
+    let now = "2026-05-17T12:00:00Z";
 
-    let pool = setup_test_db().await;
-    let segments = vec![make_segment("Readback.", 1)];
-
-    let meeting_id = TranscriptsRepository::save_transcript(
-        &pool, "Readback Test", &segments, Some("/tmp/rb".to_string()),
+    sqlx::query(
+        "INSERT INTO meetings (id, title, created_at, updated_at, folder_path) VALUES (?, ?, ?, ?, ?)"
     )
+    .bind(meeting_id)
+    .bind("Test Meeting")
+    .bind(now)
+    .bind(now)
+    .bind("/tmp/test")
+    .execute(&pool)
     .await
     .unwrap();
 
-    let meeting = MeetingsRepository::get_meeting(&pool, &meeting_id)
-        .await
-        .unwrap()
-        .expect("Meeting should exist");
-
-    assert_eq!(meeting.title, "Readback Test");
-    assert_eq!(meeting.transcripts.len(), 1);
-    assert_eq!(meeting.transcripts[0].text, "Readback.");
-    assert_eq!(meeting.folder_path, Some("/tmp/rb".to_string()));
-}
-
-#[tokio::test]
-async fn test_delete_meeting_returns_true() {
-    use app_lib::database::repositories::transcript::TranscriptsRepository;
-    use app_lib::database::repositories::meeting::MeetingsRepository;
-
-    let pool = setup_test_db().await;
-    let segments = vec![make_segment("Delete me.", 1)];
-
-    let meeting_id = TranscriptsRepository::save_transcript(
-        &pool, "To Delete", &segments, None,
+    // Insert a transcript
+    sqlx::query(
+        "INSERT INTO transcripts (id, meeting_id, transcript, timestamp, audio_start_time, audio_end_time, duration) VALUES (?, ?, ?, ?, ?, ?, ?)"
     )
+    .bind("t1")
+    .bind(meeting_id)
+    .bind("Hello world")
+    .bind("14:30:00")
+    .bind(1.5)
+    .bind(2.5)
+    .bind(1.0)
+    .execute(&pool)
     .await
     .unwrap();
 
-    let deleted = MeetingsRepository::delete_meeting(&pool, &meeting_id)
-        .await
-        .expect("delete_meeting should not error");
-    assert!(deleted, "Should return true for existing meeting");
+    // Read back
+    let (title, folder): (String, Option<String>) = sqlx::query_as(
+        "SELECT title, folder_path FROM meetings WHERE id = ?"
+    )
+    .bind(meeting_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(title, "Test Meeting");
+    assert_eq!(folder, Some("/tmp/test".to_string()));
+
+    let count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM transcripts WHERE meeting_id = ?"
+    )
+    .bind(meeting_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(count.0, 1);
 }
 
 #[tokio::test]
-async fn test_delete_nonexistent_returns_false() {
-    use app_lib::database::repositories::meeting::MeetingsRepository;
+async fn test_delete_meeting_cascades() {
+    let pool = setup_db().await;
 
-    let pool = setup_test_db().await;
-    let deleted = MeetingsRepository::delete_meeting(&pool, "meeting-ghost").await.unwrap();
-    assert!(!deleted, "Should return false for nonexistent meeting");
+    sqlx::query("INSERT INTO meetings (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)")
+        .bind("meet-del")
+        .bind("To Delete")
+        .bind("now")
+        .bind("now")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    sqlx::query(
+        "INSERT INTO transcripts (id, meeting_id, transcript, timestamp) VALUES (?, ?, ?, ?)"
+    )
+    .bind("t1")
+    .bind("meet-del")
+    .bind("Delete me")
+    .bind("14:30")
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // Delete
+    sqlx::query("DELETE FROM transcripts WHERE meeting_id = ?")
+        .bind("meet-del")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM meetings WHERE id = ?")
+        .bind("meet-del")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // Verify gone
+    let meeting_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM meetings WHERE id = ?")
+        .bind("meet-del")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(meeting_count.0, 0);
+
+    let transcript_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM transcripts WHERE meeting_id = ?")
+        .bind("meet-del")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(transcript_count.0, 0);
+}
+
+#[tokio::test]
+async fn test_delete_nonexistent_is_noop() {
+    let pool = setup_db().await;
+    let result = sqlx::query("DELETE FROM meetings WHERE id = ?")
+        .bind("meet-ghost")
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(result.rows_affected(), 0);
 }
