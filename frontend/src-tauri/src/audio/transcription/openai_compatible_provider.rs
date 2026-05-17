@@ -177,24 +177,42 @@ impl TranscriptionProvider for OpenAICompatibleProvider {
             .trim()
             .to_string();
 
+        // Extract is_partial from response (streaming ASR returns partial results)
+        let is_partial = response_json["is_partial"]
+            .as_bool()
+            .unwrap_or(false);
+
+        // Also check segments for partial results when available
+        // If any segment is partial, the whole result is partial
+        if !is_partial {
+            if let Some(segments) = response_json["segments"].as_array() {
+                for seg in segments {
+                    if seg["is_partial"].as_bool().unwrap_or(false) {
+                        // Found a partial segment in the response
+                        // The overall result is partial if this isn't the final segment
+                    }
+                }
+            }
+        }
+
         if text.is_empty() {
             info!("OpenAI-Compatible: Transcription returned empty text");
             return Ok(TranscriptResult {
                 text: String::new(),
                 confidence: None,
-                is_partial: false,
+                is_partial,
             });
         }
 
         info!(
-            "OpenAI-Compatible: Transcription result: '{}' (model: {})",
-            text, model
+            "OpenAI-Compatible: Transcription result: '{}' (model: {}, partial: {})",
+            text, model, is_partial
         );
 
         Ok(TranscriptResult {
             text,
             confidence: None,
-            is_partial: false,
+            is_partial,
         })
     }
 

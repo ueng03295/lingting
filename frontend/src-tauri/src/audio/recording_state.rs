@@ -22,6 +22,9 @@ pub struct AudioChunk {
     pub timestamp: f64,
     pub chunk_id: u64,
     pub device_type: DeviceType,
+    /// If true, this is a streaming/partial chunk — audio sent before VAD finalization.
+    /// The transcription result for this chunk should be emitted with is_partial=true.
+    pub is_streaming: bool,
 }
 
 /// Processed audio chunk (post-VAD) for recording

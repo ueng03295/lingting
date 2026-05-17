@@ -142,6 +142,7 @@ pub fn start_transcription_task<R: Runtime>(
 
                             let chunk_timestamp = chunk.timestamp;
                             let chunk_duration = chunk.data.len() as f64 / chunk.sample_rate as f64;
+                            let chunk_is_streaming = chunk.is_streaming;  // Save before move
 
                             // Transcribe with provider-agnostic approach
                             match transcribe_chunk_with_provider(
@@ -152,6 +153,8 @@ pub fn start_transcription_task<R: Runtime>(
                             .await
                             {
                                 Ok((transcript, confidence_opt, is_partial)) => {
+                                    // Streaming chunks are always partial — override provider's is_partial
+                                    let is_partial = if chunk_is_streaming { true } else { is_partial };
                                     // Provider-aware confidence threshold
                                     let confidence_threshold = match &engine_clone {
                                         TranscriptionEngine::Whisper(_) | TranscriptionEngine::Provider(_) => 0.3,
@@ -163,16 +166,16 @@ pub fn start_transcription_task<R: Runtime>(
                                         None => "N/A".to_string(),
                                     };
 
-                                    info!("🔍 Worker {} transcription result: text='{}', confidence={}, partial={}, threshold={:.2}",
-                                          worker_id, transcript, confidence_str, is_partial, confidence_threshold);
+                                    info!("🔍 Worker {} transcription result: text='{}', confidence={}, partial={}, streaming={}, threshold={:.2}",
+                                          worker_id, transcript, confidence_str, is_partial, chunk_is_streaming, confidence_threshold);
 
                                     // Check confidence threshold (or accept if no confidence provided)
                                     let meets_threshold = confidence_opt.map_or(true, |c| c >= confidence_threshold);
 
                                     if !transcript.trim().is_empty() && meets_threshold {
                                         // PERFORMANCE: Only log transcription results, not every processing step
-                                        info!("✅ Worker {} transcribed: {} (confidence: {}, partial: {})",
-                                              worker_id, transcript, confidence_str, is_partial);
+                                        info!("✅ Worker {} transcribed: {} (confidence: {}, partial: {}, streaming: {})",
+                                              worker_id, transcript, confidence_str, is_partial, chunk_is_streaming);
 
                                         // Emit speech-detected event for frontend UX (only on first detection per session)
                                         // This is lightweight and provides better user feedback
