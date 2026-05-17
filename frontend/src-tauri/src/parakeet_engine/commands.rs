@@ -1,4 +1,7 @@
-// Stub parakeet engine commands
+// ========== Parakeet Engine — ALL COMMANDS ARE STUBS (intentional) ==========
+// LingListen uses qwen3-asr (external HTTP service), not local Parakeet.
+// These stubs exist because the frontend still references them from the
+// original Meetily codebase. DO NOT DELETE without also removing frontend calls.
 use std::sync::Arc;
 use std::sync::LazyLock;
 use std::sync::Mutex as StdMutex;
@@ -57,7 +60,19 @@ pub async fn parakeet_cancel_download() -> Result<(), String> { Ok(()) }
 pub async fn parakeet_delete_corrupted_model(_model: String) -> Result<(), String> { Ok(()) }
 
 #[tauri::command]
-pub async fn open_parakeet_models_folder() -> Result<(), String> { Ok(()) }
+pub async fn open_parakeet_models_folder() -> Result<(), String> {
+    let dir = "/dev/null";
+    if dir == "/dev/null" {
+        return Err("Parakeet engine is disabled in LingListen".to_string());
+    }
+    #[cfg(target_os = "macos")]
+    { std::process::Command::new("open").arg(dir).spawn().map_err(|e| format!("Failed to open folder: {}", e))?; }
+    #[cfg(target_os = "windows")]
+    { std::process::Command::new("explorer").arg(dir).spawn().map_err(|e| format!("Failed to open folder: {}", e))?; }
+    #[cfg(target_os = "linux")]
+    { std::process::Command::new("xdg-open").arg(dir).spawn().map_err(|e| format!("Failed to open folder: {}", e))?; }
+    Ok(())
+}
 
 pub fn set_models_directory(_app: &tauri::AppHandle) {}
 

@@ -468,9 +468,7 @@ pub fn run() {
             // API stubs
             api::api_get_meetings,
             api::api_search_transcripts,
-            api::api_get_profile,
-            api::api_save_profile,
-            api::api_update_profile,
+
             api::api_get_model_config,
             api::api_save_model_config,
             api::api_get_api_key,
@@ -484,8 +482,7 @@ pub fn run() {
             api::api_save_meeting_title,
             api::api_save_transcript,
             api::open_meeting_folder,
-            api::test_backend_connection,
-            api::debug_backend_connection,
+
             api::open_external_url,
             api::api_save_custom_openai_config,
             api::api_get_custom_openai_config,

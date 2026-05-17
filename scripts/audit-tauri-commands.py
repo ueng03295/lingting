@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-RUST_API = PROJECT_ROOT / "frontend/src-tauri/src/api/mod.rs"
+RUST_SRC = PROJECT_ROOT / "frontend/src-tauri/src"
 FRONTEND_SRC = PROJECT_ROOT / "frontend/src"
 
 
@@ -131,13 +131,13 @@ def audit():
     print("  LingListen Tauri Command Audit")
     print("=" * 60)
 
-    # 1. Rust commands
-    rust_api = find_tauri_commands(RUST_API)
-    # Also check other command files
-    other_cmds = []
-    for rs_file in sorted((PROJECT_ROOT / "frontend/src-tauri/src").rglob("commands.rs")):
-        other_cmds.extend(find_tauri_commands(rs_file))
-    all_rust = {c['name']: c for c in rust_api + other_cmds}
+    # 1. Scan ALL .rs files for #[tauri::command], not just commands.rs
+    rust_cmds = []
+    for rs_file in sorted((PROJECT_ROOT / "frontend/src-tauri/src").rglob("*.rs")):
+        if "target" in str(rs_file):
+            continue
+        rust_cmds.extend(find_tauri_commands(rs_file))
+    all_rust = {c['name']: c for c in rust_cmds}
 
     print(f"\nRust commands: {len(all_rust)}")
 

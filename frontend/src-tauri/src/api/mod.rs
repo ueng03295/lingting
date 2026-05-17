@@ -318,32 +318,6 @@ pub async fn api_get_api_key(
 }
 
 #[tauri::command]
-pub async fn api_get_profile(
-    _app: AppHandle<tauri::Wry>,
-    _state: State<'_, AppState>,
-) -> Result<serde_json::Value, String> {
-    Ok(serde_json::json!({}))
-}
-
-#[tauri::command]
-pub async fn api_save_profile(
-    _profile: serde_json::Value,
-    _app: AppHandle<tauri::Wry>,
-    _state: State<'_, AppState>,
-) -> Result<(), String> {
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn api_update_profile(
-    _profile: serde_json::Value,
-    _app: AppHandle<tauri::Wry>,
-    _state: State<'_, AppState>,
-) -> Result<(), String> {
-    Ok(())
-}
-
-#[tauri::command]
 pub async fn open_meeting_folder(
     meeting_id: String,
     app: AppHandle<tauri::Wry>,
@@ -375,16 +349,6 @@ pub async fn open_meeting_folder(
         }
     }
     Ok(())
-}
-
-#[tauri::command]
-pub async fn test_backend_connection(_url: String, _key: Option<String>) -> Result<serde_json::Value, String> {
-    Ok(serde_json::json!({"connected": false}))
-}
-
-#[tauri::command]
-pub async fn debug_backend_connection(_url: String, _key: Option<String>) -> Result<serde_json::Value, String> {
-    Ok(serde_json::json!({"connected": false}))
 }
 
 #[tauri::command]
@@ -439,11 +403,55 @@ pub async fn api_get_custom_openai_config(
 
 #[tauri::command]
 pub async fn api_test_custom_openai_connection(
-    _endpoint: String,
-    _api_key: Option<String>,
-    _model: Option<String>,
-) -> Result<Vec<String>, String> {
-    Ok(vec![])
+    endpoint: String,
+    api_key: Option<String>,
+    model: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/v1/models", endpoint.trim_end_matches('/'));
+
+    let mut req = client.get(&url);
+    if let Some(key) = api_key.as_deref() {
+        req = req.header("Authorization", format!("Bearer {}", key));
+    }
+
+    match req.timeout(std::time::Duration::from_secs(10)).send().await {
+        Ok(resp) => {
+            if resp.status().is_success() {
+                let body: serde_json::Value = resp.json().await.map_err(|e| format!("Failed to parse response: {}", e))?;
+                // Extract model IDs from OpenAI-compatible /v1/models response
+                let models = body.get("data")
+                    .and_then(|d| d.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|m| m.get("id").and_then(|id| id.as_str()).map(String::from))
+                            .collect::<Vec<String>>()
+                    })
+                    .unwrap_or_default();
+
+                let model_available = model.as_ref().map_or(true, |m| m.is_empty() || models.iter().any(|id| id == m));
+
+                Ok(serde_json::json!({
+                    "status": if model_available { "connected" } else { "model_not_found" },
+                    "message": if model_available {
+                        format!("Connection successful! {} model(s) available.", models.len())
+                    } else {
+                        format!("Connected, but model '{}' not found. Available: {}", model.as_ref().unwrap(), models.join(", "))
+                    },
+                    "models": models,
+                }))
+            } else {
+                Ok(serde_json::json!({
+                    "status": "error",
+                    "message": format!("HTTP {}", resp.status()),
+                }))
+            }
+        }
+        Err(e) => Ok(serde_json::json!({
+            "status": "error",
+            "message": format!("Connection failed: {}", e),
+        })),
+    }
 }
 
 #[tauri::command]

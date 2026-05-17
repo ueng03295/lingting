@@ -2,8 +2,7 @@
 resolver = "2"
 members = [
     "frontend/src-tauri",
-    "llama-helper",
-    "ci-tests"
+    "llama-helper"
 ]
 
 # Shared workspace settings
