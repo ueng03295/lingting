@@ -12,7 +12,7 @@ env:
 
 jobs:
   integration-test:
-    name: Integration Tests
+    name: Integration Tests + Audit
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -33,7 +33,7 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run integration tests
-        run: cd frontend/src-tauri && cargo test --test integration
+        run: cargo test -p ci-tests
 
       - name: Static audit — Tauri commands
         run: python3 scripts/audit-tauri-commands.py
