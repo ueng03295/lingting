@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use anyhow::Result;
 use cpal::traits::{DeviceTrait, StreamTrait};
 use cpal::{Device, Stream, SupportedStreamConfig};
@@ -61,20 +62,26 @@ impl AudioStream {
         info!("🎵 Stream: Creating audio stream for device: {} with backend: {:?}, device_type: {:?}",
               device.name, backend_type, device_type);
 
-        // For system audio devices, use the selected backend
-        // For microphone devices, always use CPAL
+        // CRITICAL FIX: On macOS, system audio (DeviceType::System) MUST always use
+        // Core Audio global tap regardless of the backend setting.
+        //
+        // The ScreenCaptureKit backend only uses CPAL which cannot capture system audio —
+        // CPAL can only open input streams on input devices, not output devices.
+        // The Core Audio global tap (with_mono_global_tap_excluding_processes) intercepts
+        // all system audio at the Core Audio mixer level, which is the only reliable way
+        // to capture system audio from apps like 腾讯会议 on macOS.
+        //
+        // For microphone devices, always use CPAL.
         #[cfg(target_os = "macos")]
-        let use_core_audio = device_type == DeviceType::System
-            && backend_type == AudioCaptureBackend::CoreAudio;
+        let use_core_audio = device_type == DeviceType::System;
 
         #[cfg(not(target_os = "macos"))]
         let use_core_audio = false;
 
         #[cfg(target_os = "macos")]
-        info!("🎵 Stream: use_core_audio = {}, device_type == System: {}, backend == CoreAudio: {}",
+        info!("🎵 Stream: use_core_audio = {}, device_type == System: {} (system audio always uses Core Audio tap)",
               use_core_audio,
-              device_type == DeviceType::System,
-              backend_type == AudioCaptureBackend::CoreAudio);
+              device_type == DeviceType::System);
 
         #[cfg(not(target_os = "macos"))]
         info!("🎵 Stream: use_core_audio = {}, device_type == System: {}",
@@ -186,6 +193,7 @@ impl AudioStream {
         let task = tokio::spawn({
             let capture = capture.clone();
             let mut stream = core_stream;
+            let silence_warned = Arc::new(AtomicBool::new(false));
 
             async move {
                 use futures_util::StreamExt;
@@ -194,23 +202,45 @@ impl AudioStream {
                 let mut frame_count = 0;
                 let frames_per_chunk = 1024; // Process in chunks of 1024 samples
 
+                // Silence detection: check if the Core Audio tap is returning silence
+                // (which means the app likely lacks Screen Recording / Audio Capture permission)
+                let samples_received = stream.samples_received.clone();
+                let non_silence_detected = stream.non_silence_detected.clone();
+                let mut silence_check_interval = tokio::time::interval(std::time::Duration::from_secs(5));
+
                 info!("✅ Stream: Core Audio processing task started for {}", device_name);
 
                 let mut _sample_count = 0u64;
-                while let Some(sample) = stream.next().await {
-                    _sample_count += 1;
-                    // if _sample_count % 48000 == 0 {
-                    //     info!("📊 Stream: Received {} samples from Core Audio stream", _sample_count);
-                    // }
+                loop {
+                    tokio::select! {
+                        sample_opt = stream.next() => {
+                            match sample_opt {
+                                Some(sample) => {
+                                    _sample_count += 1;
+                                    buffer.push(sample);
+                                    frame_count += 1;
 
-                    buffer.push(sample);
-                    frame_count += 1;
-
-                    // Process when we have enough samples
-                    if frame_count >= frames_per_chunk {
-                        capture.process_audio_data(&buffer);
-                        buffer.clear();
-                        frame_count = 0;
+                                    if frame_count >= frames_per_chunk {
+                                        capture.process_audio_data(&buffer);
+                                        buffer.clear();
+                                        frame_count = 0;
+                                    }
+                                }
+                                None => break,
+                            }
+                        }
+                        _ = silence_check_interval.tick() => {
+                            // Check silence status every 5 seconds
+                            if !silence_warned.load(Ordering::Acquire)
+                               && !non_silence_detected.load(Ordering::Acquire)
+                               && samples_received.load(Ordering::Acquire) > 240_000
+                            {
+                                warn!("⚠️ Stream: Core Audio tap returning only silence after 5+ seconds");
+                                warn!("⚠️ Stream: This almost certainly means the app lacks Screen Recording / Audio Capture permission");
+                                warn!("⚠️ Stream: Please grant it in: System Settings → Privacy & Security → Screen Recording (or Audio Capture)");
+                                silence_warned.store(true, Ordering::Release);
+                            }
+                        }
                     }
                 }
 

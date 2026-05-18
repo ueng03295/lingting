@@ -32,7 +32,7 @@ impl AudioCaptureBackend {
     pub fn description(&self) -> &'static str {
         match self {
             AudioCaptureBackend::ScreenCaptureKit => {
-                "Apple's ScreenCaptureKit framework - Higher level API with good compatibility"
+                "ScreenCaptureKit — CPAL-based audio capture (NOTE: system audio always uses Core Audio tap regardless of this setting)"
             }
             #[cfg(target_os = "macos")]
             AudioCaptureBackend::CoreAudio => {

@@ -149,6 +149,39 @@ pub async fn validate_transcription_model_ready<R: Runtime>(app: &AppHandle<R>) 
             ).await {
                 Ok(models) => {
                     info!("✅ OpenAI-Compatible server reachable, models: {:?}", models);
+
+                    // CRITICAL FIX: Auto-load the ASR model if not already loaded.
+                    // Without this, the server runs but transcription fails because
+                    // the model is not in memory. Users had to manually click
+                    // "加载模型" every time before recording — now it's automatic.
+                    if let Some(asr_state) = app.try_state::<crate::asr_bridge::SharedASRState>() {
+                        let guard = asr_state.read().await;
+                        match guard.client.status().await {
+                            Ok(status) => {
+                                let loaded = status.get("loaded")
+                                    .and_then(|v| v.as_bool())
+                                    .unwrap_or(false);
+                                if !loaded {
+                                    info!("🔄 ASR model not loaded, auto-loading...");
+                                    drop(guard); // release read lock before write
+                                    let mut write_guard = asr_state.write().await;
+                                    match write_guard.client.load_model().await {
+                                        Ok(result) => info!("✅ ASR model auto-loaded: {:?}", result),
+                                        Err(e) => warn!("⚠️ Failed to auto-load ASR model: {} (recording will proceed, transcription may fail)", e),
+                                    }
+                                } else {
+                                    info!("✅ ASR model already loaded");
+                                }
+                            }
+                            Err(e) => {
+                                warn!("⚠️ Could not check ASR model status: {} (will attempt to load)", e);
+                                drop(guard);
+                                let mut write_guard = asr_state.write().await;
+                                let _ = write_guard.client.load_model().await;
+                            }
+                        }
+                    }
+
                     Ok(())
                 }
                 Err(e) => {

@@ -38,6 +38,10 @@ pub struct CoreAudioStream {
     _tap: ca::TapGuard,
     waker_state: Arc<Mutex<WakerState>>,
     current_sample_rate: Arc<AtomicU32>,
+    /// Track total samples received from the tap (for silence detection)
+    pub(crate) samples_received: Arc<AtomicU32>,
+    /// Whether any non-silence audio has been detected (for permission warning)
+    pub(crate) non_silence_detected: Arc<AtomicBool>,
 }
 
 /// Audio processing context
@@ -49,6 +53,11 @@ struct AudioContext {
     current_sample_rate: Arc<AtomicU32>,
     consecutive_drops: Arc<AtomicU32>,
     should_terminate: Arc<AtomicBool>,
+    /// Track whether we've received any non-silence audio from the tap.
+    /// If the tap returns only silence, it likely means the app lacks
+    /// Screen Recording / Audio Capture permission on macOS.
+    samples_received: Arc<AtomicU32>,
+    non_silence_detected: Arc<AtomicBool>,
 }
 
 #[cfg(target_os = "macos")]
@@ -277,10 +286,16 @@ impl CoreAudioCapture {
             current_sample_rate: current_sample_rate.clone(),
             consecutive_drops: Arc::new(AtomicU32::new(0)),
             should_terminate: Arc::new(AtomicBool::new(false)),
+            samples_received: Arc::new(AtomicU32::new(0)),
+            non_silence_detected: Arc::new(AtomicBool::new(false)),
         });
 
         info!("🎙️ CoreAudio: Starting audio device...");
         let device = self.start_device(&mut ctx)?;
+
+        // Clone silence detection state for CoreAudioStream access
+        let samples_received = ctx.samples_received.clone();
+        let non_silence_detected = ctx.non_silence_detected.clone();
 
         info!("✅ CoreAudio: CoreAudioStream created successfully!");
 
@@ -291,6 +306,8 @@ impl CoreAudioCapture {
             _tap: self.tap,
             waker_state,
             current_sample_rate,
+            samples_received,
+            non_silence_detected,
         })
     }
 }
@@ -302,6 +319,16 @@ fn process_audio_data(ctx: &mut AudioContext, data: &[f32]) {
     // Let the pipeline handle all gain adjustments (post-mix 3x gain + mic normalization)
     let buffer_size = data.len();
     let pushed = ctx.producer.push_slice(data);
+
+    // Track silence detection: if we've received many samples but none are non-zero,
+    // the tap is likely returning silence due to missing Screen Recording permission.
+    if !ctx.non_silence_detected.load(Ordering::Acquire) {
+        ctx.samples_received.fetch_add(buffer_size as u32, Ordering::Relaxed);
+        // Check if any sample is non-zero (non-silence)
+        if data.iter().any(|&s| s.abs() > 1e-6) {
+            ctx.non_silence_detected.store(true, Ordering::Release);
+        }
+    }
 
     if pushed < buffer_size {
         let consecutive = ctx.consecutive_drops.fetch_add(1, Ordering::AcqRel) + 1;
