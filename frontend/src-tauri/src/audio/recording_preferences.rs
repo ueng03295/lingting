@@ -293,38 +293,16 @@ pub async fn set_audio_backend(backend: String) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         use crate::audio::capture::AudioCaptureBackend;
-        use crate::audio::permissions::{
-            check_screen_recording_permission, request_screen_recording_permission,
-        };
 
         let backend_enum = AudioCaptureBackend::from_string(&backend)
             .ok_or_else(|| format!("Invalid backend: {}", backend))?;
 
         // If switching to Core Audio, log information about Audio Capture permission
+        // NOTE: We do NOT block backend switching based on permission status.
+        // The macOS permission dialog appears automatically when creating a Core Audio tap.
+        // If permission is denied, silence detection in stream.rs will emit a warning event.
         if backend_enum == AudioCaptureBackend::CoreAudio {
-            info!("🔐 Core Audio backend requires Audio Capture permission (macOS 14.4+)");
-            info!("📍 Permission dialog will appear automatically when recording starts");
-
-            // Check if permission is already granted (this is informational only)
-            if !check_screen_recording_permission() {
-                warn!("⚠️  Audio Capture permission may not be granted");
-
-                // Attempt to open System Settings (opens System Settings)
-                if let Err(e) = request_screen_recording_permission() {
-                    error!("Failed to open System Settings: {}", e);
-                }
-
-                return Err(
-                    "Core Audio requires Audio Capture permission. \
-                    The permission dialog will appear when you start recording. \
-                    If already denied, enable it in System Settings → Privacy & Security → Audio Capture, \
-                    then restart the app.".to_string()
-                );
-            }
-
-            info!(
-                "✅ Core Audio backend selected - permission check will occur at recording start"
-            );
+            info!("🔐 Core Audio backend selected — Audio Capture permission dialog will appear at recording start");
         }
 
         info!("Setting audio backend to: {:?}", backend_enum);
