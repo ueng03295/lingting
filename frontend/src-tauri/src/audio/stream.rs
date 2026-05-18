@@ -14,6 +14,27 @@ use super::capture::{AudioCaptureBackend, get_current_backend};
 #[cfg(target_os = "macos")]
 use super::capture::CoreAudioCapture;
 
+/// Global app handle for emitting events from spawned tasks.
+/// Set once during app initialization, used by silence detection etc.
+use once_cell::sync::OnceCell;
+use tauri::Emitter;
+static APP_HANDLE: OnceCell<tauri::AppHandle> = OnceCell::new();
+
+/// Set the global app handle for event emission from audio streams.
+pub fn set_app_handle(handle: tauri::AppHandle) {
+    let _ = APP_HANDLE.set(handle);
+}
+
+/// Emit a silence detection warning event to the frontend.
+fn emit_silence_warning() {
+    if let Some(handle) = APP_HANDLE.get() {
+        let _ = handle.emit("system-audio-silence", serde_json::json!({
+            "message": "System audio is returning only silence. This usually means the app lacks Audio Capture permission.\nPlease enable it in: System Settings → Privacy & Security → Audio Capture",
+            "action": "open-audio-capture-settings"
+        }));
+    }
+}
+
 /// Stream backend implementation
 pub enum StreamBackend {
     /// CPAL-based stream (ScreenCaptureKit or default)
@@ -236,9 +257,12 @@ impl AudioStream {
                                && samples_received.load(Ordering::Acquire) > 240_000
                             {
                                 warn!("⚠️ Stream: Core Audio tap returning only silence after 5+ seconds");
-                                warn!("⚠️ Stream: This almost certainly means the app lacks Screen Recording / Audio Capture permission");
-                                warn!("⚠️ Stream: Please grant it in: System Settings → Privacy & Security → Screen Recording (or Audio Capture)");
+                                warn!("⚠️ Stream: This almost certainly means the app lacks Audio Capture permission");
+                                warn!("⚠️ Stream: Please grant it in: System Settings → Privacy & Security → Audio Capture");
                                 silence_warned.store(true, Ordering::Release);
+
+                                // Emit event to frontend so the UI can show a warning
+                                emit_silence_warning();
                             }
                         }
                     }

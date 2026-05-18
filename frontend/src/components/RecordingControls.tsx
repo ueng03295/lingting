@@ -316,10 +316,22 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
           setSpeechDetected(true);
         });
 
+        // System audio silence detection listener
+        // Emitted by the backend when CoreAudio tap returns only silence
+        // (indicates missing Audio Capture permission on macOS)
+        const systemAudioSilenceUnsubscribe = await listen<{ message: string; action: string }>('system-audio-silence', (event) => {
+          console.warn('[RecordingControls] System audio silence detected:', event.payload.message);
+          // Show a user-visible warning about missing Audio Capture permission
+          if (onTranscriptionError) {
+            onTranscriptionError(event.payload.message);
+          }
+        });
+
         unsubscribes = [
           transcriptErrorUnsubscribe,
           transcriptionErrorUnsubscribe,
-          speechDetectedUnsubscribe
+          speechDetectedUnsubscribe,
+          systemAudioSilenceUnsubscribe
         ];
         console.log('Recording event listeners set up successfully');
       } catch (error) {

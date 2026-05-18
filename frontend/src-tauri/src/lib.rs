@@ -358,6 +358,9 @@ pub fn run() {
                 summary::templates::set_bundled_templates_dir(templates_dir);
             }
 
+            // Set global app handle for audio stream event emission (silence detection warnings)
+            audio::stream::set_app_handle(_app.handle().clone());
+
             log::info!("翎听 setup complete");
             Ok(())
         })
