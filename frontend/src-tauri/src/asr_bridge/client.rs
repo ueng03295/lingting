@@ -32,8 +32,14 @@ impl ASRClient {
         let url = format!("{}/v1/asr/load", self.base_url);
         let resp = self.client.post(&url).send().await?;
         if !resp.status().is_success() {
+            let status = resp.status();
             let body = resp.text().await?;
-            return Err(anyhow!("ASR load_model failed: {}", body));
+            let detail = if body.trim().is_empty() {
+                format!("HTTP {} (empty response body)", status)
+            } else {
+                format!("{} (HTTP {})", body.trim(), status)
+            };
+            return Err(anyhow!("ASR load_model failed: {}", detail));
         }
         let json: Value = resp.json().await?;
         Ok(json)
