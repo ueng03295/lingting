@@ -52,19 +52,19 @@ def test_delete_meeting_cascades():
     assert cnt == 0, f"Transcripts not cascade-deleted, got {cnt}"
 
 
-def test_transcript_json_camelcase():
+def test_transcript_json_snake_case():
     j = '''
     [
-        {"id":"seg_1","text":"hello","timestamp":"14:30","audioStartTime":1.5,"audioEndTime":2.5,"duration":1.0,"isPartial":true,"chunkStartTime":0.0,"sequenceId":1},
-        {"id":"seg_2","text":"world","timestamp":"14:31","sequenceId":2}
+        {"id":"seg_1","text":"hello","timestamp":"14:30","audio_start_time":1.5,"audio_end_time":2.5,"duration":1.0,"is_partial":true,"chunk_start_time":0.0,"sequence_id":1},
+        {"id":"seg_2","text":"world","timestamp":"14:31","sequence_id":2}
     ]
     '''
     segs = json.loads(j)
     assert len(segs) == 2
-    assert segs[0]['audioStartTime'] == 1.5
-    assert segs[0]['isPartial'] is True
+    assert segs[0]['audio_start_time'] == 1.5
+    assert segs[0]['is_partial'] is True
     # Missing optional fields are fine
-    assert segs[1].get('audioStartTime') is None  # frontend may omit
+    assert segs[1].get('audio_start_time') is None  # frontend may omit
 
 
 def test_save_response_snake_case():
@@ -97,7 +97,7 @@ TESTS = [
     ("meetings table has folder_path", test_meetings_table_has_folder_path),
     ("save → readback meeting + transcript", test_save_and_read_meeting),
     ("delete meeting cascade-deletes transcripts", test_delete_meeting_cascades),
-    ("Transcript JSON (camelCase frontend format)", test_transcript_json_camelcase),
+    ("Transcript JSON (snake_case backend format)", test_transcript_json_snake_case),
     ("SaveMeetingResponse field = meeting_id (snake_case)", test_save_response_snake_case),
     ("meeting_id format meeting-UUID", test_meeting_id_format),
     ("delete nonexistent meeting is no-op", test_delete_nonexistent_is_noop),

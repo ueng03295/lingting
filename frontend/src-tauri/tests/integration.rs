@@ -9,7 +9,6 @@ use sqlx::SqlitePool;
 // ─── Replica of key structs (independent of app_lib) ─────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct TranscriptSegment {
     pub id: String,
     pub text: String,
@@ -63,18 +62,18 @@ fn test_transcript_segment_serde_frontend_compatible() {
             "id": "seg_1",
             "text": "hello world",
             "timestamp": "14:30:05",
-            "audioStartTime": 1.5,
-            "audioEndTime": 2.5,
+            "audio_start_time": 1.5,
+            "audio_end_time": 2.5,
             "duration": 1.0,
-            "isPartial": true,
-            "chunkStartTime": 0.0,
-            "sequenceId": 1
+            "is_partial": true,
+            "chunk_start_time": 0.0,
+            "sequence_id": 1
         },
         {
             "id": "seg_2",
             "text": "second segment",
             "timestamp": "14:30:06",
-            "sequenceId": 2
+            "sequence_id": 2
         }
     ]"#;
 
