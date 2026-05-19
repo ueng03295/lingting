@@ -60,6 +60,7 @@ pub struct MeetingDetails {
 
 /// Transcript search result
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TranscriptSearchResult {
     pub id: String,
     pub title: String,
