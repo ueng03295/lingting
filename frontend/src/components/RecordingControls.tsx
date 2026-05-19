@@ -147,9 +147,7 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
       console.log('Saving recording to:', savePath);
       console.log('About to call stop_recording command');
       const result = await invoke('stop_recording', {
-        args: {
-          save_path: savePath
-        }
+        save_path: savePath
       });
       console.log('stop_recording command completed successfully:', result);
       setRecordingPath(savePath);

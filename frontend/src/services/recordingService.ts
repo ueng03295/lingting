@@ -85,7 +85,7 @@ export class RecordingService {
    */
   async stopRecording(savePath: string): Promise<void> {
     return invoke('stop_recording', {
-      args: { save_path: savePath }
+      save_path: savePath
     });
   }
 

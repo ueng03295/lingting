@@ -14,7 +14,6 @@ use super::incremental_saver::IncrementalAudioSaver;
 /// Structured transcript segment for JSON export
 /// Compatible with frontend Transcript interface where many fields are optional.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct TranscriptSegment {
     pub id: String,
     pub text: String,
