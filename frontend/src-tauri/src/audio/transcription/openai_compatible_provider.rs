@@ -228,8 +228,12 @@ pub async fn test_openai_compatible_connection(
 ) -> Result<Vec<String>, String> {
     let url = format!("{}/v1/models", endpoint.trim_end_matches('/'));
 
+    // CRITICAL: Disable system proxy for localhost connections.
+    // Corporate proxies (e.g., Clash, Surge, Charles) intercept localhost
+    // requests and return 502 Bad Gateway when the target is not routable.
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
+        .no_proxy()
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
 

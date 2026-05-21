@@ -45,6 +45,7 @@ pub struct MeetingTranscript {
     pub audio_start_time: f64,
     pub audio_end_time: f64,
     pub duration: f64,
+    pub speaker: Option<String>,
 }
 
 /// Meeting details with transcripts
@@ -460,7 +461,11 @@ pub async fn api_test_openai_compatible_transcription(
     endpoint: String,
     api_key: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
+    // CRITICAL: Disable system proxy for localhost connections.
+    let client = reqwest::Client::builder()
+        .no_proxy()
+        .build()
+        .map_err(|e| e.to_string())?;
     let url = format!("{}/v1/models", endpoint.trim_end_matches('/'));
 
     let mut req = client.get(&url);

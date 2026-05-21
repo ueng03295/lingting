@@ -109,7 +109,10 @@ async fn start_recording<R: Runtime>(
 }
 
 #[tauri::command]
-async fn stop_recording<R: Runtime>(app: AppHandle<R>, args: RecordingArgs) -> Result<(), String> {
+async fn stop_recording<R: Runtime>(
+    app: AppHandle<R>,
+    save_path: String,
+) -> Result<(), String> {
     log_info!("Attempting to stop recording...");
 
     if !audio::recording_commands::is_recording().await {
@@ -120,7 +123,7 @@ async fn stop_recording<R: Runtime>(app: AppHandle<R>, args: RecordingArgs) -> R
     match audio::recording_commands::stop_recording(
         app.clone(),
         audio::recording_commands::RecordingArgs {
-            save_path: args.save_path.clone(),
+            save_path: save_path.clone(),
         },
     )
     .await
@@ -129,7 +132,7 @@ async fn stop_recording<R: Runtime>(app: AppHandle<R>, args: RecordingArgs) -> R
             RECORDING_FLAG.store(false, Ordering::SeqCst);
             tray::update_tray_menu(&app);
 
-            if let Some(parent) = std::path::Path::new(&args.save_path).parent() {
+            if let Some(parent) = std::path::Path::new(&save_path).parent() {
                 if !parent.exists() {
                     std::fs::create_dir_all(parent)
                         .map_err(|e| format!("Failed to create directory: {}", e))?;

@@ -43,9 +43,7 @@ fn find_server_script() -> PathBuf {
 
 fn find_venv_python() -> PathBuf {
     let candidates = vec![
-        // Meeting-minutes venv (current setup)
-        PathBuf::from("/Users/q/hermes book vault/Vespera/scripts/meeting-minutes/venv/bin/python3"),
-        // Desktop ASR server venv
+        // Desktop ASR server venv (current setup)
         PathBuf::from("/Users/q/Desktop/会议纪要系统/venv/bin/python3"),
         // App-bundled venv (future)
         dirs::data_dir()

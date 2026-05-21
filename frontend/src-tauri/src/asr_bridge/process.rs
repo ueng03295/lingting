@@ -110,7 +110,10 @@ impl ASRProcess {
     /// Check if the server is responding to HTTP requests.
     pub async fn is_running(&self) -> bool {
         let url = format!("http://127.0.0.1:{}/v1/asr/status", self.port);
-        reqwest::Client::new()
+        reqwest::Client::builder()
+            .no_proxy()
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new())
             .get(&url)
             .timeout(std::time::Duration::from_secs(2))
             .send()
@@ -121,7 +124,10 @@ impl ASRProcess {
     /// Poll the health endpoint until the server is ready.
     async fn wait_for_ready(&self, max_seconds: u64) -> Result<()> {
         let url = format!("http://127.0.0.1:{}/v1/asr/status", self.port);
-        let client = reqwest::Client::new();
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
         let start = std::time::Instant::now();
 
         loop {

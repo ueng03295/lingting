@@ -92,6 +92,7 @@ impl MeetingsRepository {
                     audio_start_time: t.audio_start_time.unwrap_or(0.0),
                     audio_end_time: t.audio_end_time.unwrap_or(0.0),
                     duration: t.duration.unwrap_or(0.0),
+                    speaker: t.speaker,
                 })
                 .collect::<Vec<_>>();
 

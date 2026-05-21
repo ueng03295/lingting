@@ -129,9 +129,10 @@ export const RecordingControls: React.FC<RecordingControlsProps> = ({
           message: 'Recording permissions are required. Please:\n• Grant microphone access in System Settings\n• Grant screen recording access for system audio (macOS)\n• Restart the app after granting permissions'
         });
       } else {
+        // CRITICAL: Show the raw error message so we can diagnose the real issue
         setDeviceError({
           title: 'Recording Failed',
-          message: 'Unable to start recording. Please check your audio device settings and try again.'
+          message: `Error: ${errorMsg}`
         });
       }
     }

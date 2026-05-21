@@ -15,67 +15,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Smoke tests
-        shell: python3 {0}
-        run: |
-          import sqlite3, json, re, sys
-
-          errors = []
-
-          # 1. Schema: meetings has folder_path
-          db = sqlite3.connect(":memory:")
-          db.execute("CREATE TABLE meetings (id TEXT PRIMARY KEY, title TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, folder_path TEXT)")
-          db.execute("INSERT INTO meetings VALUES ('m1','Test','n','n','/tmp/f')")
-          r = db.execute("SELECT folder_path FROM meetings WHERE id='m1'").fetchone()
-          assert r[0] == '/tmp/f', f"folder_path: {r[0]}"
-          print("  ✅ meetings table has folder_path")
-
-          # 2. Save + readback
-          db2 = sqlite3.connect(":memory:")
-          db2.execute("CREATE TABLE meetings (id TEXT PRIMARY KEY, title TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, folder_path TEXT)")
-          db2.execute("CREATE TABLE transcripts (id TEXT PRIMARY KEY, meeting_id TEXT NOT NULL, transcript TEXT NOT NULL, timestamp TEXT NOT NULL, audio_start_time REAL, audio_end_time REAL, duration REAL)")
-          db2.execute("INSERT INTO meetings VALUES ('m1','Test Meeting','now','now','/tmp/t')")
-          db2.execute("INSERT INTO transcripts VALUES ('t1','m1','hello','14:30',1.5,2.5,1.0)")
-          title, folder = db2.execute("SELECT title, folder_path FROM meetings WHERE id='m1'").fetchone()
-          assert title == 'Test Meeting'
-          assert folder == '/tmp/t'
-          cnt = db2.execute("SELECT COUNT(*) FROM transcripts WHERE meeting_id='m1'").fetchone()[0]
-          assert cnt == 1
-          print("  ✅ save → readback meeting + transcript")
-
-          # 3. Cascade delete
-          db3 = sqlite3.connect(":memory:")
-          db3.execute("PRAGMA foreign_keys = ON")
-          db3.execute("CREATE TABLE meetings (id TEXT PRIMARY KEY, title TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, folder_path TEXT)")
-          db3.execute("CREATE TABLE transcripts (id TEXT PRIMARY KEY, meeting_id TEXT NOT NULL, transcript TEXT NOT NULL, timestamp TEXT NOT NULL, audio_start_time REAL, audio_end_time REAL, duration REAL, FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE)")
-          db3.execute("INSERT INTO meetings VALUES ('md','To Delete','n','n',NULL)")
-          db3.execute("INSERT INTO transcripts VALUES ('t','md','text','14:30',0,0,0)")
-          db3.execute("DELETE FROM meetings WHERE id='md'")
-          cnt = db3.execute("SELECT COUNT(*) FROM transcripts WHERE meeting_id='md'").fetchone()[0]
-          assert cnt == 0
-          print("  ✅ delete meeting cascade-deletes transcripts")
-
-          # 4. Frontend JSON deserialization
-          j = '[{"id":"seg_1","text":"hello","timestamp":"14:30","audioStartTime":1.5,"isPartial":true,"sequenceId":1},{"id":"seg_2","text":"world","timestamp":"14:31","sequenceId":2}]'
-          segs = json.loads(j)
-          assert len(segs) == 2
-          assert segs[0]['audioStartTime'] == 1.5
-          assert segs[0]['isPartial'] is True
-          print("  ✅ Transcript JSON camelCase deserialization")
-
-          # 5. Response field naming
-          r = {"meeting_id": "meeting-test-123"}
-          j = json.dumps(r)
-          d = json.loads(j)
-          assert 'meeting_id' in d
-          assert 'meetingId' not in d
-          print("  ✅ SaveMeetingResponse snake_case")
-
-          # 6. meeting_id format
-          assert re.match(r'^meeting-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', "meeting-550e8400-e29b-41d4-a716-446655440000")
-          print("  ✅ meeting_id UUID format")
-
-          print(f"\n🎉 ALL 6 TESTS PASSED")
+      - name: Smoke tests (scripts/smoke-test.py)
+        run: python3 scripts/smoke-test.py
 
       - name: Static audit — Tauri commands
         # Non-blocking: audit may find pre-existing stubs from upstream Meetily

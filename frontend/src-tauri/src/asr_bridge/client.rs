@@ -11,6 +11,7 @@ impl ASRClient {
     pub fn new(base_url: String) -> Self {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(300)) // 5 min for large audio
+            .no_proxy() // CRITICAL: disable system proxy for localhost
             .build()
             .expect("Failed to create HTTP client");
         Self { base_url, client }
