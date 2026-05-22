@@ -220,7 +220,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
       }
       try {
         const result = await invoke('api_get_summary', {
-          meetingId: meetingId,
+          meeting_id: meetingId,
         }) as any;
 
         console.log(`📊 Polling update for ${meetingId}:`, result.status);

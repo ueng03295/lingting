@@ -197,7 +197,7 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
       // Optimistically add to downloadingModels for immediate UI feedback
       setDownloadingModels((prev) => new Set([...prev, modelName]));
 
-      await invoke('builtin_ai_download_model', { modelName });
+      await invoke('builtin_ai_download_model', { model_name: modelName });
     } catch (error) {
       console.error('Failed to download model:', error);
 
@@ -225,7 +225,7 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
 
   const cancelDownload = async (modelName: string) => {
     try {
-      await invoke('builtin_ai_cancel_download', { modelName });
+      await invoke('builtin_ai_cancel_download', { model_name: modelName });
       toast.info(`Download of ${modelName} cancelled`);
       setDownloadingModels((prev) => {
         const newSet = new Set(prev);
@@ -239,7 +239,7 @@ export function BuiltInModelManager({ selectedModel, onModelSelect }: BuiltInMod
 
   const deleteModel = async (modelName: string) => {
     try {
-      await invoke('builtin_ai_delete_model', { modelName });
+      await invoke('builtin_ai_delete_model', { model_name: modelName });
       toast.success(`Model ${modelName} deleted`);
       fetchModels();
     } catch (error) {

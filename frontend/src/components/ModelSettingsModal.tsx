@@ -618,11 +618,11 @@ export function ModelSettingsModal({
       try {
         await invoke('api_save_custom_openai_config', {
           endpoint: customOpenAIEndpoint.trim(),
-          apiKey: customOpenAIApiKey.trim() || null,
+          api_key: customOpenAIApiKey.trim() || null,
           model: customOpenAIModel.trim(),
-          maxTokens: customMaxTokens ? parseInt(customMaxTokens, 10) : null,
+          max_tokens: customMaxTokens ? parseInt(customMaxTokens, 10) : null,
           temperature: customTemperature ? parseFloat(customTemperature) : null,
-          topP: customTopP ? parseFloat(customTopP) : null,
+          top_p: customTopP ? parseFloat(customTopP) : null,
         });
         console.log('Custom OpenAI config saved successfully');
       } catch (err) {

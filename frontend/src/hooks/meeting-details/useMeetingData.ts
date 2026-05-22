@@ -48,7 +48,7 @@ export function useMeetingData({ meeting, summaryData, onMeetingUpdated }: UseMe
   const handleSaveMeetingTitle = useCallback(async () => {
     try {
       await invokeTauri('api_save_meeting_title', {
-        meetingId: meeting.id,
+        meeting_id: meeting.id,
         title: meetingTitle,
       });
 
@@ -101,7 +101,7 @@ export function useMeetingData({ meeting, summaryData, onMeetingUpdated }: UseMe
       }
 
       await invokeTauri('api_save_meeting_summary', {
-        meetingId: meeting.id,
+        meeting_id: meeting.id,
         summary: formattedSummary,
       });
 

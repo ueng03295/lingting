@@ -102,11 +102,11 @@ export class ConfigService {
   async saveCustomOpenAIConfig(config: CustomOpenAIConfig): Promise<{ status: string; message: string }> {
     return invoke<{ status: string; message: string }>('api_save_custom_openai_config', {
       endpoint: config.endpoint,
-      apiKey: config.apiKey,
+      api_key: config.apiKey,
       model: config.model,
-      maxTokens: config.maxTokens,
+      max_tokens: config.maxTokens,
       temperature: config.temperature,
-      topP: config.topP,
+      top_p: config.topP,
     });
   }
 

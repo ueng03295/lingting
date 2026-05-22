@@ -327,13 +327,13 @@ const Sidebar: React.FC = () => {
   const handleDelete = async (itemId: string) => {
     console.log('Deleting item:', itemId);
     const payload = {
-      meetingId: itemId
+      meeting_id: itemId
     };
 
     try {
       const { invoke } = await import('@tauri-apps/api/core');
       await invoke('api_delete_meeting', {
-        meetingId: itemId,
+        meeting_id: itemId,
       });
       console.log('Meeting deleted successfully');
       const updatedMeetings = meetings.filter((m: CurrentMeeting) => m.id !== itemId);
@@ -371,7 +371,7 @@ const Sidebar: React.FC = () => {
   const handleEditStart = (meetingId: string, currentTitle: string) => {
     setEditModalState({
       isOpen: true,
-      meetingId: meetingId,
+      meeting_id: meetingId,
       currentTitle: currentTitle
     });
     setEditingTitle(currentTitle);
@@ -391,7 +391,7 @@ const Sidebar: React.FC = () => {
 
     try {
       await invoke('api_save_meeting_title', {
-        meetingId: meetingId,
+        meeting_id: meetingId,
         title: newTitle,
       });
 
