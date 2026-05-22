@@ -42,9 +42,9 @@ export class StorageService {
     folderPath: string | null
   ): Promise<SaveMeetingResponse> {
     return invoke<SaveMeetingResponse>('api_save_transcript', {
-      meetingTitle,
+      meeting_title: meetingTitle,
       transcripts,
-      folderPath,
+      folder_path: folderPath,
     });
   }
 
