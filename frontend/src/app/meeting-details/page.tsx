@@ -202,7 +202,7 @@ function MeetingDetailsContent() {
     const fetchMeetingSummary = async () => {
       try {
         const summary = await invoke('api_get_summary', {
-          meetingId: meetingId,
+          meeting_id: meetingId,
         }) as any;
 
         console.log('FETCH SUMMARY: Raw response:', summary);

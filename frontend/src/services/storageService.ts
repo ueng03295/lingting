@@ -54,7 +54,7 @@ export class StorageService {
    * @returns Promise with meeting details
    */
   async getMeeting(meetingId: string): Promise<Meeting> {
-    return invoke<Meeting>('api_get_meeting', { meetingId });
+    return invoke<Meeting>('api_get_meeting', { meeting_id: meetingId });
   }
 
   /**

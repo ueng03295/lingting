@@ -58,7 +58,7 @@ export function HomebrewDatabaseDetector({ onImportSuccess, onDecline }: Homebre
       setIsImporting(true);
 
       await invoke('import_and_initialize_database', {
-        legacyDbPath: detectedPath,
+        legacy_db_path: detectedPath,
       });
 
       toast.success('Database imported successfully! Reloading...');

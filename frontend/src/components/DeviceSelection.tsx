@@ -182,7 +182,7 @@ export function DeviceSelection({ selectedDevices, onDeviceChange, disabled = fa
         return;
       }
 
-      await invoke('start_audio_level_monitoring', { deviceNames });
+      await invoke('start_audio_level_monitoring', { device_names: deviceNames });
       setIsMonitoring(true);
       setShowLevels(true);
       console.log('Started audio level monitoring for input devices:', deviceNames);

@@ -34,7 +34,7 @@ export function PermissionWarning({
   const openMicrophoneSettings = async () => {
     if (isMacOS) {
       try {
-        await invoke('open_system_settings', { preferencePane: 'Privacy_Microphone' });
+        await invoke('open_system_settings', { preference_pane: 'Privacy_Microphone' });
       } catch (error) {
         console.error('Failed to open microphone settings:', error);
       }
@@ -44,7 +44,7 @@ export function PermissionWarning({
   const openScreenRecordingSettings = async () => {
     if (isMacOS) {
       try {
-        await invoke('open_system_settings', { preferencePane: 'Privacy_ScreenCapture' });
+        await invoke('open_system_settings', { preference_pane: 'Privacy_ScreenCapture' });
       } catch (error) {
         console.error('Failed to open screen recording settings:', error);
       }

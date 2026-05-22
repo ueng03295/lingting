@@ -80,7 +80,7 @@ export function DownloadProgressStep() {
     }));
 
     try {
-      await invoke('parakeet_retry_download', { modelName: PARAKEET_MODEL });
+      await invoke('parakeet_retry_download', { model: PARAKEET_MODEL });
       // Progress events will update state
     } catch (error) {
       console.error('[DownloadProgressStep] Retry failed:', error);
@@ -124,7 +124,7 @@ export function DownloadProgressStep() {
 
     try {
       // Call download command directly (no retry command exists for built-in AI)
-      await invoke('builtin_ai_download_model', { modelName: selectedSummaryModel || recommendedModel });
+      await invoke('builtin_ai_download_model', { model_name: selectedSummaryModel || recommendedModel });
     } catch (error) {
       console.error('[DownloadProgressStep] Summary retry failed:', error);
       setGemmaState((prev) => ({

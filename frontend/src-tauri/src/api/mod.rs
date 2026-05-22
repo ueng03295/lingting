@@ -31,6 +31,12 @@ pub struct TranscriptConfig {
 pub struct ModelConfig {
     pub provider: String,
     pub model: String,
+    #[serde(rename = "whisperModel")]
+    pub whisper_model: Option<String>,
+    #[serde(rename = "apiKey")]
+    pub api_key: Option<String>,
+    #[serde(rename = "ollamaEndpoint")]
+    pub ollama_endpoint: Option<String>,
 }
 
 /// Transcript segment (re-exported for compatibility)
@@ -142,16 +148,25 @@ pub async fn api_get_model_config<R: Runtime>(
         Ok(Some(setting)) => Ok(Some(ModelConfig {
             provider: setting.provider,
             model: setting.model,
+            whisper_model: Some(setting.whisper_model.clone()),
+            api_key: None, // Don't expose API key in config read
+            ollama_endpoint: setting.ollama_endpoint,
         })),
         Ok(None) => Ok(Some(ModelConfig {
             provider: "qwen3-asr".to_string(),
             model: "qwen3-asr-1.7b".to_string(),
+            whisper_model: Some("large-v3".to_string()),
+            api_key: None,
+            ollama_endpoint: None,
         })),
         Err(e) => {
             log::warn!("Failed to load model config: {}", e);
             Ok(Some(ModelConfig {
                 provider: "qwen3-asr".to_string(),
                 model: "qwen3-asr-1.7b".to_string(),
+                whisper_model: Some("large-v3".to_string()),
+                api_key: None,
+                ollama_endpoint: None,
             }))
         }
     }
@@ -164,9 +179,25 @@ pub async fn api_save_model_config(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let pool = state.db_manager.pool();
-    SettingsRepository::save_model_config(pool, &config.provider, &config.model, "qwen3-asr-1.7b", None)
-        .await
-        .map_err(|e| format!("Failed to save model config: {}", e))
+    SettingsRepository::save_model_config(
+        pool,
+        &config.provider,
+        &config.model,
+        config.whisper_model.as_deref().unwrap_or("qwen3-asr-1.7b"),
+        config.api_key.as_deref(),
+        config.ollama_endpoint.as_deref(),
+    )
+    .await
+    .map_err(|e| format!("Failed to save model config: {}", e))
+}
+
+#[tauri::command]
+pub async fn api_get_auto_generate_setting(
+    _app: AppHandle<tauri::Wry>,
+    _state: State<'_, AppState>,
+) -> Result<bool, String> {
+    // Default to true — no persistent storage yet
+    Ok(true)
 }
 
 #[tauri::command]

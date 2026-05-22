@@ -196,7 +196,8 @@ pub async fn initialize_fresh_database(app: AppHandle) -> Result<(), String> {
         "builtin-ai",
         "gemma3:1b",
         "large-v3", // Default whisper model (unused for builtin but required)
-        None,
+        None,       // api_key
+        None,       // ollama_endpoint
     ).await {
         error!("Failed to set default summary model config: {}", e);
     }

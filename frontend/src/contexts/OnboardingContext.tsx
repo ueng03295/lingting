@@ -149,7 +149,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
 
         if (homebrewCheck?.exists) {
           console.log('[OnboardingContext] Found Homebrew database, importing');
-          await invoke('import_and_initialize_database', { legacyDbPath: homebrewDbPath });
+          await invoke('import_and_initialize_database', { legacy_db_path: homebrewDbPath });
           setDatabaseExists(true);
           return;
         }
@@ -163,7 +163,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       const legacyPath = await invoke<string | null>('check_default_legacy_database');
       if (legacyPath) {
         console.log('[OnboardingContext] Found legacy database, importing');
-        await invoke('import_and_initialize_database', { legacyDbPath: legacyPath });
+        await invoke('import_and_initialize_database', { legacy_db_path: legacyPath });
         setDatabaseExists(true);
         return;
       }
@@ -430,7 +430,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       // Start Parakeet download first (speech recognition - always required)
       if (!parakeetDownloaded) {
         console.log('[OnboardingContext] Starting Parakeet download');
-        invoke('parakeet_download_model', { modelName: PARAKEET_MODEL })
+        invoke('parakeet_download_model', { model: PARAKEET_MODEL })
           .catch(err => console.error('[OnboardingContext] Parakeet download failed:', err));
       }
 
@@ -438,7 +438,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       if (includeGemma && !summaryModelDownloaded) {
         setTimeout(() => {
           console.log('[OnboardingContext] Starting Gemma download (delayed to prioritize Parakeet)');
-          invoke('builtin_ai_download_model', { modelName: selectedSummaryModel || 'gemma3:1b' })
+          invoke('builtin_ai_download_model', { model_name: selectedSummaryModel || 'gemma3:1b' })
             .catch(err => console.error('[OnboardingContext] Gemma download failed:', err));
         }, 3000); // 3 second delay to give Parakeet priority
       }
@@ -470,7 +470,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
   const retryParakeetDownload = async () => {
     console.log('[OnboardingContext] Retrying Parakeet download');
     try {
-      await invoke('parakeet_retry_download', { modelName: PARAKEET_MODEL });
+      await invoke('parakeet_retry_download', { model: PARAKEET_MODEL });
     } catch (error) {
       console.error('[OnboardingContext] Retry failed:', error);
       throw error;

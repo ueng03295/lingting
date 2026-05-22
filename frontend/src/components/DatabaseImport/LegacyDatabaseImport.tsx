@@ -62,7 +62,7 @@ export function LegacyDatabaseImport({ isOpen, onComplete }: LegacyDatabaseImpor
       setImportState('importing');
 
       await invoke('import_and_initialize_database', {
-        legacyDbPath: detectedPath,
+        legacy_db_path: detectedPath,
       });
 
       setImportState('success');

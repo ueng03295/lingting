@@ -43,6 +43,7 @@ impl SettingsRepository {
         provider: &str,
         model: &str,
         whisper_model: &str,
+        api_key: Option<&str>,
         ollama_endpoint: Option<&str>,
     ) -> std::result::Result<(), sqlx::Error> {
         // Using id '1' for backward compatibility
@@ -63,6 +64,11 @@ impl SettingsRepository {
         .bind(ollama_endpoint)
         .execute(pool)
         .await?;
+
+        // Save API key separately if provided
+        if let Some(key) = api_key {
+            let _ = Self::save_api_key(pool, provider, key).await;
+        }
 
         Ok(())
     }

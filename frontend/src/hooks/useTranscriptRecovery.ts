@@ -59,7 +59,7 @@ export function useTranscriptRecovery(): UseTranscriptRecoveryReturn {
           if (meeting.folderPath) {
             try {
               const hasAudio = await invoke<boolean>('has_audio_checkpoints', {
-                meetingFolder: meeting.folderPath
+                meeting_folder: meeting.folderPath
               });
 
               // If no audio files, clear folderPath to show "No audio" in UI
@@ -139,7 +139,7 @@ export function useTranscriptRecovery(): UseTranscriptRecoveryReturn {
         try {
           audioRecoveryStatus = await invoke<AudioRecoveryStatus>(
             'recover_audio_from_checkpoints',
-            { meetingFolder: folderPath, sampleRate: 48000 }
+            { meeting_folder: folderPath, sample_rate: 48000 }
           );
         } catch (error) {
           console.error('Audio recovery failed:', error);
@@ -189,7 +189,7 @@ export function useTranscriptRecovery(): UseTranscriptRecoveryReturn {
       // 8. Clean up checkpoint files
       if (folderPath) {
         try {
-          await invoke('cleanup_checkpoints', { meetingFolder: folderPath });
+          await invoke('cleanup_checkpoints', { meeting_folder: folderPath });
         } catch (error) {
           // Non-fatal - don't fail recovery if cleanup fails
           console.warn('Checkpoint cleanup failed (non-fatal):', error);

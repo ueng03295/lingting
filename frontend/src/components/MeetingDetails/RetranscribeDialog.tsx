@@ -215,8 +215,8 @@ export function RetranscribeDialog({
       });
 
       await invoke('start_retranscription_command', {
-        meetingId,
-        meetingFolderPath,
+        meeting_id: meetingId,
+        meeting_folder_path: meetingFolderPath,
         language: languageToSend,
         model: selectedModelDetails?.name || null,
         provider: selectedModelDetails?.provider || null,
