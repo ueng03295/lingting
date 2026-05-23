@@ -371,7 +371,7 @@ const Sidebar: React.FC = () => {
   const handleEditStart = (meetingId: string, currentTitle: string) => {
     setEditModalState({
       isOpen: true,
-      meeting_id: meetingId,
+      meetingId: meetingId,
       currentTitle: currentTitle
     });
     setEditingTitle(currentTitle);
